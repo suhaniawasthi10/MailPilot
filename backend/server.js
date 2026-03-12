@@ -14,6 +14,7 @@ import { initSocket } from './services/socketService.js';
 import { startCleanupScheduler } from './services/cleanupService.js';
 
 const app = express();
+app.set('trust proxy', 1);
 // Wrap Express in a raw HTTP server — required for Socket.io
 // Socket.io upgrades HTTP connections to WebSocket, which needs
 // access to the underlying HTTP server (not just Express)
