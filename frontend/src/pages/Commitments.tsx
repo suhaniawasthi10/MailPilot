@@ -12,6 +12,8 @@ import {
   Filter,
   Search,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -35,19 +37,25 @@ function Commitments() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [addingToCalendar, setAddingToCalendar] = useState<string | null>(null)
   const [calendarSuccess, setCalendarSuccess] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCommitments, setTotalCommitments] = useState(0)
 
   useEffect(() => {
     if (!activeConnection) return
-    async function fetch() {
-      try {
-        const { data } = await api.get(`/api/commitments?connectionId=${activeConnection}`)
-        setCommitments(data)
-      } catch (err) {
-        toast('Failed to load commitments', 'error')
-      }
+    fetchCommitments()
+  }, [activeConnection, page])
+
+  async function fetchCommitments() {
+    try {
+      const { data } = await api.get(`/api/commitments?connectionId=${activeConnection}&page=${page}&limit=20`)
+      setCommitments(data.commitments)
+      setTotalPages(data.pagination.pages)
+      setTotalCommitments(data.pagination.total)
+    } catch (err) {
+      toast('Failed to load commitments', 'error')
     }
-    fetch()
-  }, [activeConnection])
+  }
 
   const handleExtract = async () => {
     if (!activeConnection || extracting) return
@@ -55,8 +63,8 @@ function Commitments() {
     try {
       const { data } = await api.post('/api/commitments/extract', { connectionId: activeConnection })
       toast(data.message || 'Commitments extracted', 'success')
-      const { data: comms } = await api.get(`/api/commitments?connectionId=${activeConnection}`)
-      setCommitments(comms)
+      setPage(1)
+      await fetchCommitments()
     } catch (err) {
       toast('Failed to extract commitments', 'error')
     } finally {
@@ -142,12 +150,12 @@ function Commitments() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">Commitments</h1>
           <p className="text-sm text-zinc-500 mt-1">
-            {filtered.length} commitment{filtered.length !== 1 ? 's' : ''}
+            {totalCommitments} commitment{totalCommitments !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -223,16 +231,17 @@ function Commitments() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((c) => {
+          {filtered.map((c, i) => {
             const email = typeof c.emailId === 'object' ? (c.emailId as Email) : null
             const overdue = isOverdue(c)
 
             return (
               <div
                 key={c._id}
-                className={`rounded-xl border bg-zinc-900/40 p-5 transition-colors ${
+                className={`rounded-xl border bg-zinc-900/40 p-5 transition-colors animate-fade-in-up ${
                   overdue ? 'border-red-500/30 bg-red-500/5' : 'border-zinc-800'
                 }`}
+                style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
               >
                 <div className="flex items-start gap-4">
                   <button
@@ -291,6 +300,31 @@ function Commitments() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-zinc-500">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -46,12 +46,10 @@ export const registerGoogleWatch = async (connection) => {
         // data.historyId = the current point in the mailbox history
         // data.expiration = when this watch expires (ms since epoch)
         await EmailConnection.findByIdAndUpdate(connection._id, {
-            historyId: data.historyId,
+            historyId: String(data.historyId),
             watchResourceId: data.resourceId || '',
             watchExpiration: new Date(parseInt(data.expiration)),
         });
-
-        console.log(`Google watch registered for ${connection.emailAddress}, expires ${new Date(parseInt(data.expiration)).toISOString()}`);
     } catch (error) {
         // Non-fatal: the app works without real-time sync (user can still manual sync)
         console.error(`Failed to register Google watch for ${connection.emailAddress}:`, error.message);
@@ -110,7 +108,6 @@ export const registerMicrosoftSubscription = async (connection) => {
             watchExpiration: new Date(subscription.expirationDateTime),
         });
 
-        console.log(`Microsoft subscription registered for ${connection.emailAddress}, expires ${subscription.expirationDateTime}`);
     } catch (error) {
         console.error(`Failed to register Microsoft subscription for ${connection.emailAddress}:`, error.message);
     }
@@ -131,7 +128,6 @@ export const renewExpiringWatches = async () => {
 
         if (expiring.length === 0) return;
 
-        console.log(`Renewing ${expiring.length} expiring watch(es)...`);
 
         for (const connection of expiring) {
             if (connection.provider === 'google') {
@@ -158,5 +154,4 @@ export const startWatchRenewalScheduler = () => {
     const SIX_HOURS = 6 * 60 * 60 * 1000;
     setInterval(renewExpiringWatches, SIX_HOURS);
 
-    console.log('Watch renewal scheduler started (runs every 6 hours)');
 };

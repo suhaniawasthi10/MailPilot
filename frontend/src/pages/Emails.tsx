@@ -9,7 +9,7 @@ import {
   Copy,
   Check,
   ChevronLeft,
-  User,
+  ChevronRight,
   Clock,
   Briefcase,
   Users,
@@ -26,8 +26,10 @@ import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
 import { EmailListSkeleton } from '../components/Skeleton'
-import { useSocket } from '../hooks/useSocket'
+import { useSocket } from '../context/SocketContext'
 import type { Email, EmailCategory } from '../types'
+import { getAvatarColor } from '../lib/avatarColor'
+import { timeAgo } from '../lib/formatDate'
 
 // Safely extract plain text from HTML email bodies to prevent XSS attacks.
 const stripHtml = (html: string): string => {
@@ -78,14 +80,22 @@ function Emails() {
   const [generatingDraft, setGeneratingDraft] = useState(false)
   const [draftReply, setDraftReply] = useState('')
   const [copied, setCopied] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalEmails, setTotalEmails] = useState(0)
 
-  // Fetch emails when connection changes
+  // Fetch emails when connection or page changes
   useEffect(() => {
     if (!activeConnection) return
     setSelectedEmail(null)
     setDraftReply('')
     fetchEmails()
-  }, [activeConnection])
+  }, [activeConnection, page])
+
+  // Reset to page 1 when category changes
+  useEffect(() => {
+    setPage(1)
+  }, [activeCategory])
 
   // Listen for real-time WebSocket events (replaces polling)
   // When a webhook delivers a new email, the backend pushes it here instantly
@@ -94,7 +104,8 @@ function Emails() {
 
     const handleNewEmail = (email: Email) => {
       // Only add if it belongs to the active connection
-      if (email.connectionId !== activeConnection) return
+      // Use toString() because MongoDB ObjectIds may not match strict equality
+      if (String(email.connectionId) !== String(activeConnection)) return
 
       setEmails((prev) => {
         // Avoid duplicates — if the email already exists, update it
@@ -105,6 +116,11 @@ function Emails() {
         // Add new email at the top (most recent first)
         return [email, ...prev]
       })
+      setTotalEmails((prev) => prev + 1)
+
+      // Show toast for new emails
+      const senderName = email.sender?.match(/^(.+?)\s*</)?.[1] || email.sender
+      toast(`New email from ${senderName}`, 'info')
     }
 
     socket.on('email:new', handleNewEmail)
@@ -113,10 +129,12 @@ function Emails() {
 
   async function fetchEmails() {
     try {
-      const { data } = await api.get(`/api/emails?connectionId=${activeConnection}`)
-      setEmails(data)
+      const { data } = await api.get(`/api/emails?connectionId=${activeConnection}&page=${page}&limit=20`)
+      setEmails(data.emails)
+      setTotalPages(data.pagination.pages)
+      setTotalEmails(data.pagination.total)
     } catch (err) {
-      // Silent fail on polling — only toast on explicit user actions
+      // Silent fail — only toast on explicit user actions
     }
   }
 
@@ -203,9 +221,14 @@ function Emails() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4">
-        <Mail className="w-10 h-10 text-zinc-600" />
-        <p className="text-zinc-500">No email accounts connected yet.</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4 animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center">
+          <Mail className="w-8 h-8 text-zinc-500" />
+        </div>
+        <div className="text-center">
+          <p className="text-zinc-300 font-medium">No accounts connected</p>
+          <p className="text-zinc-500 text-sm mt-1">Connect your Gmail or Outlook to get started.</p>
+        </div>
       </div>
     )
   }
@@ -213,9 +236,10 @@ function Emails() {
   // Detail view
   if (selectedEmail) {
     const { name: senderName, email: senderEmail } = parseSender(selectedEmail.sender)
+    const detailAvatar = getAvatarColor(senderName || '')
 
     return (
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6 animate-slide-in-right">
         <button
           onClick={() => { setSelectedEmail(null); setDraftReply('') }}
           className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
@@ -223,7 +247,7 @@ function Emails() {
           <ChevronLeft className="w-4 h-4" /> Back to emails
         </button>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden animate-fade-in">
           <div className="p-6 border-b border-zinc-800 space-y-3">
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-semibold text-zinc-100 flex-1">
@@ -232,8 +256,8 @@ function Emails() {
               <CategoryBadge category={selectedEmail.category} />
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
-                <User className="w-4 h-4 text-indigo-400" />
+              <div className={`w-9 h-9 rounded-full ${detailAvatar.bg} border ${detailAvatar.border} flex items-center justify-center`}>
+                <span className={`text-sm font-medium ${detailAvatar.text}`}>{senderName?.charAt(0)?.toUpperCase() || '?'}</span>
               </div>
               <div>
                 <p className="text-sm font-medium text-zinc-200">{senderName}</p>
@@ -241,9 +265,7 @@ function Emails() {
               </div>
               <span className="ml-auto text-xs text-zinc-600 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {new Date(selectedEmail.receivedAt).toLocaleDateString('en-US', {
-                  month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-                })}
+                {timeAgo(selectedEmail.receivedAt)}
               </span>
             </div>
           </div>
@@ -290,11 +312,11 @@ function Emails() {
 
   // List view
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">Emails</h1>
-          <p className="text-sm text-zinc-500 mt-1">{sorted.length} email{sorted.length !== 1 ? 's' : ''}{activeCategory !== 'all' ? ` in ${activeCategory === 'priority' ? 'priority inbox' : activeCategory}` : ''}</p>
+          <p className="text-sm text-zinc-500 mt-1">{totalEmails} email{totalEmails !== 1 ? 's' : ''}{activeCategory !== 'all' ? ` in ${activeCategory === 'priority' ? 'priority inbox' : activeCategory}` : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -325,14 +347,13 @@ function Emails() {
           onClick={() => setActiveCategory('priority')}
           icon={Inbox}
           label="Priority"
-          count={emails.filter(e => ['personal', 'work', 'calendar', 'receipt', 'uncategorized'].includes(e.category)).length}
         />
         <FilterPill
           active={activeCategory === 'all'}
           onClick={() => setActiveCategory('all')}
           icon={Mail}
           label="All"
-          count={emails.length}
+          count={totalEmails}
         />
         {PRIORITY_ORDER.filter(cat => categoryCounts[cat]).map((cat) => (
           <FilterPill
@@ -365,24 +386,31 @@ function Emails() {
 
       {/* Email list */}
       {sorted.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
-          <Mail className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-          <p className="text-sm text-zinc-500">
-            {emails.length === 0 ? 'No emails yet. Hit Sync to fetch your latest emails.' : 'No emails match your filters.'}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-12 text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-7 h-7 text-zinc-500" />
+          </div>
+          <p className="text-sm text-zinc-300 font-medium">
+            {emails.length === 0 ? 'No emails yet' : 'No emails match your filters'}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {emails.length === 0 ? 'Hit Sync to fetch your latest emails.' : 'Try a different category or clear your search.'}
           </p>
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-800 divide-y divide-zinc-800/60 overflow-hidden">
-          {sorted.map((email) => {
+          {sorted.map((email, i) => {
             const { name } = parseSender(email.sender)
+            const avatar = getAvatarColor(name || '')
             return (
               <button
                 key={email._id}
                 onClick={() => setSelectedEmail(email)}
-                className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer"
+                className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer animate-fade-in-up"
+                style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
               >
-                <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-xs font-medium text-zinc-400">
+                <div className={`w-9 h-9 rounded-full ${avatar.bg} border ${avatar.border} flex items-center justify-center shrink-0 mt-0.5`}>
+                  <span className={`text-xs font-medium ${avatar.text}`}>
                     {name?.charAt(0)?.toUpperCase() || '?'}
                   </span>
                 </div>
@@ -393,7 +421,7 @@ function Emails() {
                       <CategoryBadge category={email.category} />
                     </div>
                     <span className="text-xs text-zinc-600 shrink-0">
-                      {new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {timeAgo(email.receivedAt)}
                     </span>
                   </div>
                   <p className="text-sm text-zinc-300 truncate mt-0.5">{email.subject || '(No subject)'}</p>
@@ -407,6 +435,31 @@ function Emails() {
           })}
         </div>
       )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-zinc-500">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -416,7 +469,7 @@ function FilterPill({ active, onClick, icon: Icon, label, count }: {
   onClick: () => void
   icon: React.ElementType
   label: string
-  count: number
+  count?: number
 }) {
   return (
     <button
@@ -429,7 +482,7 @@ function FilterPill({ active, onClick, icon: Icon, label, count }: {
     >
       <Icon className="w-3.5 h-3.5" />
       {label}
-      <span className={`ml-0.5 ${active ? 'text-indigo-400/70' : 'text-zinc-600'}`}>{count}</span>
+      {count !== undefined && <span className={`ml-0.5 ${active ? 'text-indigo-400/70' : 'text-zinc-600'}`}>{count}</span>}
     </button>
   )
 }

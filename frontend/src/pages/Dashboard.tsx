@@ -17,10 +17,11 @@ import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
+import { useSocket } from '../context/SocketContext'
 import { DashboardSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
-import type { Commitment, Email } from '../types'
+import type { Commitment } from '../types'
 
 interface Stats {
   totalEmails: number
@@ -33,6 +34,7 @@ function Dashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { connections, activeConnection, loading } = useConnections()
+  const socket = useSocket()
   const [stats, setStats] = useState<Stats>({ totalEmails: 0, pendingCommitments: 0, overdueCount: 0, replyNeeded: 0 })
   const [commitments, setCommitments] = useState<Commitment[]>([])
   const [syncing, setSyncing] = useState(false)
@@ -44,16 +46,16 @@ function Dashboard() {
     async function fetchData() {
       try {
         const [emailsRes, commitmentsRes] = await Promise.all([
-          api.get(`/api/emails?connectionId=${activeConnection}`),
-          api.get(`/api/commitments?connectionId=${activeConnection}`),
+          api.get(`/api/emails?connectionId=${activeConnection}&page=1&limit=1`),
+          api.get(`/api/commitments?connectionId=${activeConnection}&page=1&limit=50`),
         ])
 
-        const emails: Email[] = emailsRes.data
-        const comms: Commitment[] = commitmentsRes.data
+        const totalEmails = emailsRes.data.pagination.total
+        const comms: Commitment[] = commitmentsRes.data.commitments
         const pending = comms.filter((c) => c.status === 'pending')
 
         setStats({
-          totalEmails: emails.length,
+          totalEmails,
           pendingCommitments: pending.length,
           overdueCount: pending.filter((c) => c.deadline && new Date(c.deadline) < new Date()).length,
           replyNeeded: pending.filter((c) => c.replyRequired).length,
@@ -66,6 +68,19 @@ function Dashboard() {
     fetchData()
   }, [activeConnection])
 
+  // Listen for real-time new emails via WebSocket
+  useEffect(() => {
+    if (!socket) return
+
+    const handleNewEmail = () => {
+      // Increment email count when a new email arrives via webhook
+      setStats((prev) => ({ ...prev, totalEmails: prev.totalEmails + 1 }))
+    }
+
+    socket.on('email:new', handleNewEmail)
+    return () => { socket.off('email:new', handleNewEmail) }
+  }, [socket])
+
   const handleSync = async () => {
     if (!activeConnection || syncing) return
     setSyncing(true)
@@ -73,14 +88,14 @@ function Dashboard() {
       const { data } = await api.post('/api/emails/sync', { connectionId: activeConnection })
       toast(`Synced ${data.emails?.length || 0} emails`, 'success')
       const [emailsRes, commitmentsRes] = await Promise.all([
-        api.get(`/api/emails?connectionId=${activeConnection}`),
-        api.get(`/api/commitments?connectionId=${activeConnection}`),
+        api.get(`/api/emails?connectionId=${activeConnection}&page=1&limit=1`),
+        api.get(`/api/commitments?connectionId=${activeConnection}&page=1&limit=50`),
       ])
-      const emails: Email[] = emailsRes.data
-      const comms: Commitment[] = commitmentsRes.data
+      const totalEmails = emailsRes.data.pagination.total
+      const comms: Commitment[] = commitmentsRes.data.commitments
       const pending = comms.filter((c) => c.status === 'pending')
       setStats({
-        totalEmails: emails.length,
+        totalEmails,
         pendingCommitments: pending.length,
         overdueCount: pending.filter((c) => c.deadline && new Date(c.deadline) < new Date()).length,
         replyNeeded: pending.filter((c) => c.replyRequired).length,
@@ -97,17 +112,18 @@ function Dashboard() {
     if (!activeConnection || extracting) return
     setExtracting(true)
     try {
-      const { data } = await api.post('/api/commitments/extract', { connectionId: activeConnection })
-      toast(data.message || 'Commitments extracted', 'success')
-      const { data: comms } = await api.get(`/api/commitments?connectionId=${activeConnection}`)
-      const pending = comms.filter((c: Commitment) => c.status === 'pending')
+      const { data: extractRes } = await api.post('/api/commitments/extract', { connectionId: activeConnection })
+      toast(extractRes.message || 'Commitments extracted', 'success')
+      const { data: commsRes } = await api.get(`/api/commitments?connectionId=${activeConnection}&page=1&limit=50`)
+      const commsData: Commitment[] = commsRes.commitments
+      const pending = commsData.filter((c) => c.status === 'pending')
       setStats((prev) => ({
         ...prev,
         pendingCommitments: pending.length,
-        overdueCount: pending.filter((c: Commitment) => c.deadline && new Date(c.deadline) < new Date()).length,
-        replyNeeded: pending.filter((c: Commitment) => c.replyRequired).length,
+        overdueCount: pending.filter((c) => c.deadline && new Date(c.deadline) < new Date()).length,
+        replyNeeded: pending.filter((c) => c.replyRequired).length,
       }))
-      setCommitments(comms)
+      setCommitments(commsData)
     } catch (err) {
       toast('Failed to extract commitments', 'error')
     } finally {
@@ -161,7 +177,7 @@ function Dashboard() {
   const recentCommitments = commitments.slice(0, 8)
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-zinc-100">Dashboard</h1>
@@ -320,7 +336,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
     purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
   }
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 animate-fade-in-up">
       <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${colors[color]}`}>
         <Icon className="w-4.5 h-4.5" />
       </div>

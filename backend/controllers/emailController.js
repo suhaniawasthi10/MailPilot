@@ -100,7 +100,6 @@ const syncEmails = async (req, res) => {
                         console.error(`Categorization failed for ${email._id}:`, err.message);
                     }
                 }
-                console.log(`Categorized ${uncategorized.length} email(s)`);
             })().catch((err) => console.error('Background categorization error:', err.message));
         }
     } catch (error) {
@@ -109,11 +108,11 @@ const syncEmails = async (req, res) => {
     }
 };
 
-// @desc    Get all synced emails for a specific connection
-// @route   GET /api/emails?connectionId=xxx
+// @desc    Get synced emails for a specific connection (paginated)
+// @route   GET /api/emails?connectionId=xxx&page=1&limit=20&category=work
 const getEmails = async (req, res) => {
     try {
-        const { connectionId } = req.query;
+        const { connectionId, category } = req.query;
 
         if (!connectionId) {
             return res.status(400).json({ message: 'connectionId query param is required' });
@@ -124,10 +123,35 @@ const getEmails = async (req, res) => {
             return res.status(404).json({ message: 'Connection not found or not yours' });
         }
 
-        const emails = await Email.find({ connectionId: connection._id })
-            .sort({ receivedAt: -1 });
+        // Pagination: default page 1, default 20 per page, max 50
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+        const skip = (page - 1) * limit;
 
-        res.json(emails);
+        // Build query — optionally filter by category
+        const query = { connectionId: connection._id };
+        if (category && category !== 'all') {
+            query.category = category;
+        }
+
+        // Run count + fetch in parallel for speed
+        const [total, emails] = await Promise.all([
+            Email.countDocuments(query),
+            Email.find(query)
+                .sort({ receivedAt: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        res.json({
+            emails,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        });
     } catch (error) {
         console.error('Get emails error:', error.message);
         res.status(500).json({ message: 'Failed to fetch emails' });

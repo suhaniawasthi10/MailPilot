@@ -96,18 +96,38 @@ const getCommitments = async (req, res) => {
             return res.status(404).json({ message: 'Connection not found or not yours' });
         }
 
-        const commitments = await Commitment.find({ connectionId: connection._id })
-            .populate('emailId', 'subject sender snippet receivedAt')
-            .sort({ createdAt: -1 });
+        // Pagination: default page 1, default 20 per page, max 50
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+        const skip = (page - 1) * limit;
 
-        res.json(commitments);
+        const query = { connectionId: connection._id };
+
+        const [total, commitments] = await Promise.all([
+            Commitment.countDocuments(query),
+            Commitment.find(query)
+                .populate('emailId', 'subject sender snippet receivedAt')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        res.json({
+            commitments,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        });
     } catch (error) {
         console.error('Get commitments error:', error.message);
         res.status(500).json({ message: 'Failed to fetch commitments' });
     }
 };
 
-// @desc    Mark a commitment as completed
+// @desc    Toggle commitment status (pending ↔ completed)
 // @route   PATCH /api/commitments/:id
 const updateCommitment = async (req, res) => {
     try {
@@ -122,7 +142,10 @@ const updateCommitment = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this commitment' });
         }
 
-        commitment.status = req.body.status || 'completed';
+        const newStatus = req.body.status || 'completed';
+        commitment.status = newStatus;
+        // Track when it was completed (for auto-cleanup after 30 days)
+        commitment.completedAt = newStatus === 'completed' ? new Date() : null;
         await commitment.save();
 
         res.json(commitment);

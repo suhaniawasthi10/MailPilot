@@ -64,18 +64,18 @@ emailConnectionSchema.index({ userId: 1, providerAccountId: 1 }, { unique: true 
 emailConnectionSchema.index({ watchSubscriptionId: 1 }, { sparse: true });
 
 // Encrypt tokens before saving
-emailConnectionSchema.pre('save', function (next) {
+// Note: Mongoose 9 removed the `next` callback from hooks — just return instead
+emailConnectionSchema.pre('save', function () {
     if (this.isModified('accessToken') && this.accessToken) {
         this.accessToken = encrypt(this.accessToken);
     }
     if (this.isModified('refreshToken') && this.refreshToken) {
         this.refreshToken = encrypt(this.refreshToken);
     }
-    next();
 });
 
 // Encrypt tokens on findOneAndUpdate
-emailConnectionSchema.pre('findOneAndUpdate', function (next) {
+emailConnectionSchema.pre('findOneAndUpdate', function () {
     const update = this.getUpdate();
     if (update.accessToken) {
         update.accessToken = encrypt(update.accessToken);
@@ -83,7 +83,6 @@ emailConnectionSchema.pre('findOneAndUpdate', function (next) {
     if (update.refreshToken) {
         update.refreshToken = encrypt(update.refreshToken);
     }
-    next();
 });
 
 // Decrypt tokens after reading from DB

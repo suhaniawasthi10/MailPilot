@@ -55,9 +55,7 @@ export const handleGoogleNotification = async (base64Data) => {
     }
 
     // If we have no stored historyId, we can't do incremental sync
-    // (this shouldn't happen if watch was registered properly)
     if (!connection.historyId) {
-        console.warn(`No historyId stored for ${emailAddress}, skipping incremental sync`);
         return;
     }
 
@@ -134,8 +132,6 @@ export const handleGoogleNotification = async (base64Data) => {
         }
 
         if (synced > 0) {
-            console.log(`Webhook: synced ${synced} new email(s) for ${emailAddress}`);
-
             // Categorize new emails in background, then push via WebSocket
             for (const email of newEmails) {
                 try {
@@ -229,7 +225,6 @@ export const handleMicrosoftNotification = async (notifications) => {
             // Push to user's browser in real-time via WebSocket
             emitToUser(connection.userId, 'email:new', saved);
 
-            console.log(`Webhook: synced Microsoft email "${subject}" for ${connection.emailAddress}`);
         } catch (error) {
             console.error(`Microsoft webhook sync error for subscription ${subscriptionId}:`, error.message);
         }

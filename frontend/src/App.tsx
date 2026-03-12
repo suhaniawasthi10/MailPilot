@@ -7,6 +7,7 @@ import Commitments from './pages/Commitments'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import { ConnectionProvider } from './context/ConnectionContext'
+import { SocketProvider } from './context/SocketContext'
 
 function TokenHandler() {
   const navigate = useNavigate()
@@ -35,12 +36,21 @@ function TokenHandler() {
   return <Navigate to={hasToken ? '/dashboard' : '/login'} />
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoutes() {
   const token = localStorage.getItem('token')
   if (!token) return <Navigate to="/login" />
   return (
     <ConnectionProvider>
-      <Layout>{children}</Layout>
+      <SocketProvider>
+        <Layout>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/emails" element={<Emails />} />
+            <Route path="/commitments" element={<Commitments />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </Layout>
+      </SocketProvider>
     </ConnectionProvider>
   )
 }
@@ -51,11 +61,8 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/emails" element={<ProtectedRoute><Emails /></ProtectedRoute>} />
-      <Route path="/commitments" element={<ProtectedRoute><Commitments /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="*" element={<TokenHandler />} />
+      <Route path="/" element={<TokenHandler />} />
+      <Route path="/*" element={<ProtectedRoutes />} />
     </Routes>
   )
 }

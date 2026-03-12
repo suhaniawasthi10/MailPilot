@@ -11,6 +11,7 @@ import webhookRoutes from './routes/webhookRoutes.js';
 import { apiLimiter, authLimiter } from './middleware/rateLimit.js';
 import { startWatchRenewalScheduler } from './services/watchService.js';
 import { initSocket } from './services/socketService.js';
+import { startCleanupScheduler } from './services/cleanupService.js';
 
 const app = express();
 // Wrap Express in a raw HTTP server — required for Socket.io
@@ -54,4 +55,7 @@ connectDB().then(() => {
 
     // Start renewing expiring watches every 6 hours
     startWatchRenewalScheduler();
+
+    // Auto-delete completed commitments older than 30 days (runs daily)
+    startCleanupScheduler();
 });

@@ -41,6 +41,12 @@ const commitmentSchema = new mongoose.Schema(
             enum: ['pending', 'completed'],
             default: 'pending',
         },
+        // When the commitment was marked as completed (null if still pending)
+        // Used by the cleanup scheduler to auto-delete after 30 days
+        completedAt: {
+            type: Date,
+            default: null,
+        },
     },
     {
         timestamps: true,

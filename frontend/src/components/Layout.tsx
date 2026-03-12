@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
+import { disconnectSocket } from '../context/SocketContext'
 import { LayoutDashboard, Mail, ListChecks, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useConnections } from '../context/ConnectionContext'
@@ -11,13 +12,13 @@ const navItems = [
 ]
 
 function Layout({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { connections, activeConnection, setActiveConnection } = useConnections()
 
   const handleLogout = () => {
     localStorage.removeItem('token')
-    navigate('/login')
+    disconnectSocket()
+    window.location.href = '/login'
   }
 
   const activeEmail = connections.find((c) => c._id === activeConnection)?.emailAddress

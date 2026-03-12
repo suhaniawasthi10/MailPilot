@@ -62,15 +62,8 @@ export const initSocket = (httpServer) => {
         // Join a room named after the user's ID
         // This way we can target events to specific users
         socket.join(socket.userId);
-
-        console.log(`Socket connected: user ${socket.userId} (socket ${socket.id})`);
-
-        socket.on('disconnect', () => {
-            console.log(`Socket disconnected: user ${socket.userId} (socket ${socket.id})`);
-        });
     });
 
-    console.log('Socket.io initialized');
     return io;
 };
 
