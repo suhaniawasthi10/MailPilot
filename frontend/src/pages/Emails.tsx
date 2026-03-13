@@ -31,7 +31,6 @@ import { useSocket } from '../context/SocketContext'
 import type { Email, EmailCategory } from '../types'
 import { getAvatarColor } from '../lib/avatarColor'
 import { timeAgo } from '../lib/formatDate'
-import { getCached, setCache } from '../lib/cache'
 
 // Safely extract plain text from HTML email bodies to prevent XSS attacks.
 const stripHtml = (html: string): string => {
@@ -95,10 +94,11 @@ function Emails() {
     fetchEmails()
   }, [activeConnection, page])
 
-  // Reset to page 1 when category changes
-  useEffect(() => {
+  // Reset to page 1 when category or search changes
+  const handleCategoryChange = (cat: EmailCategory | 'all' | 'priority') => {
+    setActiveCategory(cat)
     setPage(1)
-  }, [activeCategory])
+  }
 
   // Listen for real-time WebSocket events (replaces polling)
   // When a webhook delivers a new email, the backend pushes it here instantly
@@ -131,19 +131,11 @@ function Emails() {
   }, [socket, activeConnection])
 
   async function fetchEmails() {
-    const cacheKey = `emails-${activeConnection}-${page}`
-    const cached = getCached<{ emails: Email[]; totalPages: number; totalEmails: number }>(cacheKey)
-    if (cached) {
-      setEmails(cached.emails)
-      setTotalPages(cached.totalPages)
-      setTotalEmails(cached.totalEmails)
-    }
     try {
       const { data } = await api.get(`/api/emails?connectionId=${activeConnection}&page=${page}&limit=20`)
       setEmails(data.emails)
       setTotalPages(data.pagination.pages)
       setTotalEmails(data.pagination.total)
-      setCache(cacheKey, { emails: data.emails, totalPages: data.pagination.pages, totalEmails: data.pagination.total })
     } catch (err) {
       // Silent fail — only toast on explicit user actions
     }
@@ -383,13 +375,13 @@ function Emails() {
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         <FilterPill
           active={activeCategory === 'priority'}
-          onClick={() => setActiveCategory('priority')}
+          onClick={() => handleCategoryChange('priority')}
           icon={Inbox}
           label="Priority"
         />
         <FilterPill
           active={activeCategory === 'all'}
-          onClick={() => setActiveCategory('all')}
+          onClick={() => handleCategoryChange('all')}
           icon={Mail}
           label="All"
           count={totalEmails}
@@ -398,7 +390,7 @@ function Emails() {
           <FilterPill
             key={cat}
             active={activeCategory === cat}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => handleCategoryChange(cat)}
             icon={CATEGORY_CONFIG[cat].icon}
             label={CATEGORY_CONFIG[cat].label}
             count={categoryCounts[cat] || 0}
@@ -438,15 +430,14 @@ function Emails() {
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-800 divide-y divide-zinc-800/60 overflow-hidden">
-          {sorted.map((email, i) => {
+          {sorted.map((email) => {
             const { name } = parseSender(email.sender)
             const avatar = getAvatarColor(name || '')
             return (
               <button
                 key={email._id}
                 onClick={() => setSelectedEmail(email)}
-                className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer animate-fade-in-up"
-                style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
+                className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer"
               >
                 <div className={`w-9 h-9 rounded-full ${avatar.bg} border ${avatar.border} flex items-center justify-center shrink-0 mt-0.5`}>
                   <span className={`text-xs font-medium ${avatar.text}`}>

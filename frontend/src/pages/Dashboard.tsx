@@ -22,7 +22,6 @@ import { DashboardSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
 import type { Commitment } from '../types'
-import { getCached, setCache } from '../lib/cache'
 
 interface Stats {
   totalEmails: number
@@ -44,14 +43,6 @@ function Dashboard() {
   useEffect(() => {
     if (!activeConnection) return
 
-    // Load cached data instantly if available
-    const cacheKey = `dashboard-${activeConnection}`
-    const cached = getCached<{ stats: Stats; commitments: Commitment[] }>(cacheKey)
-    if (cached) {
-      setStats(cached.stats)
-      setCommitments(cached.commitments)
-    }
-
     async function fetchData() {
       try {
         const [emailsRes, commitmentsRes] = await Promise.all([
@@ -63,17 +54,15 @@ function Dashboard() {
         const comms: Commitment[] = commitmentsRes.data.commitments
         const pending = comms.filter((c) => c.status === 'pending')
 
-        const newStats = {
+        setStats({
           totalEmails,
           pendingCommitments: pending.length,
           overdueCount: pending.filter((c) => c.deadline && new Date(c.deadline) < new Date()).length,
           replyNeeded: pending.filter((c) => c.replyRequired).length,
-        }
-        setStats(newStats)
+        })
         setCommitments(comms)
-        setCache(cacheKey, { stats: newStats, commitments: comms })
       } catch (err) {
-        if (!cached) toast('Failed to load dashboard data', 'error')
+        toast('Failed to load dashboard data', 'error')
       }
     }
     fetchData()
