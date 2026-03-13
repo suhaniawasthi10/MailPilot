@@ -1,11 +1,11 @@
 import express from 'express';
-import { protect } from '../middleware/authMiddleware.js';
+import auth from '../middleware/auth.js';
 import User from '../models/User.js';
 
 const router = express.Router();
 
 // GET /api/user/signature
-router.get('/signature', protect, async (req, res) => {
+router.get('/signature', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('emailSignature');
         res.json({ signature: user?.emailSignature || '' });
@@ -15,7 +15,7 @@ router.get('/signature', protect, async (req, res) => {
 });
 
 // PUT /api/user/signature
-router.put('/signature', protect, async (req, res) => {
+router.put('/signature', auth, async (req, res) => {
     try {
         const { signature } = req.body;
         await User.findByIdAndUpdate(req.user.id, { emailSignature: signature || '' });
