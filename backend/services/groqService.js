@@ -158,21 +158,53 @@ const categorizeEmail = async (subject, sender, snippet) => {
 };
 
 /**
- * Categorize multiple emails in batch.
- * Adds a small delay between calls to respect Groq rate limits.
+ * Categorize multiple emails in a single LLM call.
+ * Sends all emails at once and gets back all categories — much faster than one-by-one.
  *
  * @param {Array} emails - Array of { subject, sender, snippet } objects
  * @returns {Array} Array of category strings in the same order
  */
 const categorizeEmails = async (emails) => {
+    if (emails.length === 0) return [];
+    if (emails.length === 1) return [await categorizeEmail(emails[0].subject, emails[0].sender, emails[0].snippet)];
+
+    try {
+        const emailList = emails.map((e, i) =>
+            `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Snippet: ${e.snippet || '(empty)'}`
+        ).join('\n');
+
+        const prompt = `You are an email classifier. Categorize each email into EXACTLY ONE of these categories:
+personal, work, newsletter, marketing, receipt, calendar, notification, cold-email
+
+Respond with ONLY valid JSON: {"categories": ["category1", "category2", ...]}
+The array must have exactly ${emails.length} items, one per email in order.
+
+EMAILS:
+${emailList}`;
+
+        const data = await callGroqWithRetry({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            max_tokens: 512,
+            response_format: { type: 'json_object' },
+        });
+
+        const parsed = JSON.parse(data.choices[0].message.content);
+        if (Array.isArray(parsed.categories) && parsed.categories.length === emails.length) {
+            return parsed.categories.map(c => VALID_CATEGORIES.includes(c) ? c : 'uncategorized');
+        }
+        // Fallback: wrong array length, categorize individually
+        console.warn('Batch categorization returned wrong count, falling back to individual');
+    } catch (error) {
+        console.error('Batch categorization error:', error.message);
+    }
+
+    // Fallback: individual categorization
     const categories = [];
     for (const email of emails) {
         const category = await categorizeEmail(email.subject, email.sender, email.snippet);
         categories.push(category);
-        // Small delay between calls to avoid rate limits
-        if (emails.indexOf(email) < emails.length - 1) {
-            await delay(1000);
-        }
     }
     return categories;
 };
@@ -316,4 +348,64 @@ YOUR REMINDER:`;
     }
 };
 
-export { extractCommitments, generateReply, generateReminder, categorizeEmail, categorizeEmails, delay };
+/**
+ * Extract commitments from multiple emails in a single LLM call.
+ * Much faster than calling extractCommitments per email.
+ *
+ * @param {Array} emails - Array of { subject, sender, body } objects
+ * @returns {Array} Array of extraction results in the same order
+ */
+const extractCommitmentsBatch = async (emails) => {
+    if (emails.length === 0) return [];
+    if (emails.length === 1) return [await extractCommitments(emails[0].subject, emails[0].sender, emails[0].body)];
+
+    try {
+        const emailList = emails.map((e, i) =>
+            `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Body: ${truncateBody(e.body)}`
+        ).join('\n---\n');
+
+        const prompt = `You are an AI assistant that analyzes emails and extracts actionable information.
+
+For EACH email below, extract:
+1. A brief summary of any commitment, action item, or task
+2. Any deadline or due date (ISO 8601: YYYY-MM-DD)
+3. Whether the email requires a reply (true/false)
+4. Priority level (high, medium, or low)
+
+If no clear commitment exists for an email, use: summary "No actionable commitment found", deadline null, replyRequired false, priority "low".
+
+Respond with ONLY valid JSON:
+{"items": [{"summary": "...", "deadline": "YYYY-MM-DD or null", "replyRequired": true/false, "priority": "high/medium/low"}, ...]}
+
+The array must have exactly ${emails.length} items, one per email in order.
+
+EMAILS:
+${emailList}`;
+
+        const data = await callGroqWithRetry({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            max_tokens: 2048,
+            response_format: { type: 'json_object' },
+        });
+
+        const parsed = JSON.parse(data.choices[0].message.content);
+        if (Array.isArray(parsed.items) && parsed.items.length === emails.length) {
+            return parsed.items.map(item => validateExtraction(item));
+        }
+        console.warn('Batch extraction returned wrong count, falling back to individual');
+    } catch (error) {
+        console.error('Batch extraction error:', error.message);
+    }
+
+    // Fallback: individual extraction
+    const results = [];
+    for (const email of emails) {
+        const result = await extractCommitments(email.subject, email.sender, email.body);
+        results.push(result);
+    }
+    return results;
+};
+
+export { extractCommitments, extractCommitmentsBatch, generateReply, generateReminder, categorizeEmail, categorizeEmails, delay };

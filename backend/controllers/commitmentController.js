@@ -13,7 +13,7 @@
 import Email from '../models/Email.js';
 import Commitment from '../models/Commitment.js';
 import { getVerifiedConnection, getGmailClient, getCalendarClient } from '../utils/connectionHelper.js';
-import { extractCommitments, generateReminder, delay } from '../services/groqService.js';
+import { extractCommitmentsBatch, generateReminder } from '../services/groqService.js';
 import { createMicrosoftDraft, createMicrosoftCalendarEvent } from '../services/microsoftService.js';
 
 // @desc    Process unprocessed emails through Groq LLM
@@ -44,14 +44,15 @@ const processEmails = async (req, res) => {
             });
         }
 
-        const newCommitments = [];
+        // Batch extract all commitments in a single LLM call
+        const extractions = await extractCommitmentsBatch(
+            unprocessedEmails.map(e => ({ subject: e.subject, sender: e.sender, body: e.body }))
+        );
 
-        for (const email of unprocessedEmails) {
-            const extraction = await extractCommitments(
-                email.subject,
-                email.sender,
-                email.body
-            );
+        const newCommitments = [];
+        for (let i = 0; i < unprocessedEmails.length; i++) {
+            const email = unprocessedEmails[i];
+            const extraction = extractions[i];
 
             const commitment = await Commitment.create({
                 connectionId: connection._id,
@@ -64,11 +65,6 @@ const processEmails = async (req, res) => {
 
             newCommitments.push(commitment);
             await Email.findByIdAndUpdate(email._id, { isProcessed: true });
-
-            // Wait 15s between calls to avoid hitting Groq's 12K TPM rate limit
-            if (unprocessedEmails.indexOf(email) < unprocessedEmails.length - 1) {
-                await delay(15000);
-            }
         }
 
         res.json({

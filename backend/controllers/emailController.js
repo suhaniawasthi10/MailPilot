@@ -1,10 +1,11 @@
 import Email from '../models/Email.js';
+import User from '../models/User.js';
 import { getVerifiedConnection, getGmailClient } from '../utils/connectionHelper.js';
-import { generateReply as generateReplyFn, categorizeEmail } from '../services/groqService.js';
+import { generateReply as generateReplyFn, categorizeEmails } from '../services/groqService.js';
 import { fetchMicrosoftEmails, createMicrosoftDraft } from '../services/microsoftService.js';
 import { getEmailBody, getHeader } from '../utils/emailParser.js';
 
-// --- GOOGLE: sync emails via Gmail API ---
+// --- GOOGLE: sync emails via Gmail API (parallel batch fetch) ---
 const syncGoogleEmails = async (connection, limit) => {
     const gmail = getGmailClient(connection);
 
@@ -15,27 +16,38 @@ const syncGoogleEmails = async (connection, limit) => {
     });
 
     const messages = response.data.messages || [];
+    if (messages.length === 0) return [];
+
+    // Fetch all message details in parallel (batches of 20 to avoid rate limits)
+    const BATCH_SIZE = 20;
     const emailData = [];
 
-    for (const msg of messages) {
-        const details = await gmail.users.messages.get({
-            userId: 'me',
-            id: msg.id,
-            format: 'full',
-        });
+    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+        const batch = messages.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+            batch.map((msg) =>
+                gmail.users.messages.get({
+                    userId: 'me',
+                    id: msg.id,
+                    format: 'full',
+                })
+            )
+        );
 
-        const { payload, internalDate } = details.data;
-        const headers = payload.headers;
+        for (const details of results) {
+            const { payload, internalDate } = details.data;
+            const headers = payload.headers;
 
-        emailData.push({
-            providerMessageId: msg.id,
-            providerThreadId: msg.threadId,
-            subject: getHeader(headers, 'Subject'),
-            sender: getHeader(headers, 'From'),
-            snippet: payload.snippet,
-            body: getEmailBody(payload),
-            receivedAt: new Date(parseInt(internalDate)),
-        });
+            emailData.push({
+                providerMessageId: details.data.id,
+                providerThreadId: details.data.threadId,
+                subject: getHeader(headers, 'Subject'),
+                sender: getHeader(headers, 'From'),
+                snippet: payload.snippet,
+                body: getEmailBody(payload),
+                receivedAt: new Date(parseInt(internalDate)),
+            });
+        }
     }
 
     return emailData;
@@ -53,7 +65,7 @@ const syncEmails = async (req, res) => {
         }
 
         // Parse limit: default 10, min 1, max 50
-        const limit = Math.min(Math.max(parseInt(req.body.limit) || 10, 1), 50);
+        const limit = Math.min(Math.max(parseInt(req.body.limit) || 25, 1), 100);
 
         const connection = await getVerifiedConnection(connectionId, req.user.id);
         if (!connection) {
@@ -88,17 +100,15 @@ const syncEmails = async (req, res) => {
             emails: savedEmails,
         });
 
-        // Categorize uncategorized emails in the background (non-blocking)
+        // Categorize uncategorized emails in the background (single LLM call)
         const uncategorized = savedEmails.filter((e) => e.category === 'uncategorized');
         if (uncategorized.length > 0) {
             (async () => {
-                for (const email of uncategorized) {
-                    try {
-                        const category = await categorizeEmail(email.subject, email.sender, email.snippet);
-                        await Email.findByIdAndUpdate(email._id, { category });
-                    } catch (err) {
-                        console.error(`Categorization failed for ${email._id}:`, err.message);
-                    }
+                const categories = await categorizeEmails(
+                    uncategorized.map(e => ({ subject: e.subject, sender: e.sender, snippet: e.snippet }))
+                );
+                for (let i = 0; i < uncategorized.length; i++) {
+                    await Email.findByIdAndUpdate(uncategorized[i]._id, { category: categories[i] });
                 }
             })().catch((err) => console.error('Background categorization error:', err.message));
         }
@@ -158,17 +168,23 @@ const getEmails = async (req, res) => {
     }
 };
 
-// --- GOOGLE: create Gmail draft ---
-const createGoogleDraft = async (connection, email, replyText) => {
+// --- GOOGLE: create Gmail draft (supports HTML for signatures) ---
+const createGoogleDraft = async (connection, email, replyText, signature) => {
     const gmail = getGmailClient(connection);
+
+    // Build HTML body with signature
+    const escapedReply = replyText.replace(/\n/g, '<br>');
+    const htmlBody = signature
+        ? `${escapedReply}<br><br>--<br>${signature}`
+        : escapedReply;
 
     const rawMessage = [
         `To: ${email.sender}`,
         `Subject: Re: ${email.subject}`,
         `In-Reply-To: ${email.providerMessageId}`,
-        `Content-Type: text/plain; charset=utf-8`,
+        `Content-Type: text/html; charset=utf-8`,
         '',
-        replyText,
+        htmlBody,
     ].join('\n');
 
     const encodedMessage = Buffer.from(rawMessage)
@@ -205,16 +221,17 @@ const generateDraft = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this email' });
         }
 
-        // Step 1: Generate reply with Groq (same for both providers)
-        const replyText = await generateReplyFn(
-            email.subject,
-            email.sender,
-            email.body
-        );
+        // Step 1: Generate reply with Groq + fetch user signature in parallel
+        const [replyText, user] = await Promise.all([
+            generateReplyFn(email.subject, email.sender, email.body),
+            User.findById(req.user.id).select('emailSignature'),
+        ]);
 
         if (!replyText) {
             return res.status(500).json({ message: 'Failed to generate reply' });
         }
+
+        const signature = user?.emailSignature || '';
 
         // Step 2: Create draft via provider-specific API
         let result;
@@ -224,7 +241,7 @@ const generateDraft = async (req, res) => {
             const toAddress = senderMatch ? senderMatch[1] : email.sender;
             result = await createMicrosoftDraft(connection, toAddress, email.subject, replyText, email.providerThreadId);
         } else {
-            result = await createGoogleDraft(connection, email, replyText);
+            result = await createGoogleDraft(connection, email, replyText, signature);
         }
 
         res.json({
@@ -238,4 +255,73 @@ const generateDraft = async (req, res) => {
     }
 };
 
-export { syncEmails, getEmails, generateDraft };
+// @desc    Send a reply email directly (Google OR Microsoft)
+// @route   POST /api/emails/send-reply/:emailId
+// @body    { replyText }
+const sendReply = async (req, res) => {
+    try {
+        const { replyText } = req.body;
+        if (!replyText) {
+            return res.status(400).json({ message: 'replyText is required' });
+        }
+
+        const email = await Email.findById(req.params.emailId);
+        if (!email) {
+            return res.status(404).json({ message: 'Email not found' });
+        }
+
+        const connection = await getVerifiedConnection(email.connectionId, req.user.id);
+        if (!connection) {
+            return res.status(403).json({ message: 'Not authorized for this email' });
+        }
+
+        // Fetch user signature
+        const user = await User.findById(req.user.id).select('emailSignature');
+        const signature = user?.emailSignature || '';
+
+        if (connection.provider === 'google') {
+            const gmail = getGmailClient(connection);
+
+            const escapedReply = replyText.replace(/\n/g, '<br>');
+            const htmlBody = signature
+                ? `${escapedReply}<br><br>--<br>${signature}`
+                : escapedReply;
+
+            const rawMessage = [
+                `To: ${email.sender}`,
+                `Subject: Re: ${email.subject}`,
+                `In-Reply-To: ${email.providerMessageId}`,
+                `Content-Type: text/html; charset=utf-8`,
+                '',
+                htmlBody,
+            ].join('\n');
+
+            const encodedMessage = Buffer.from(rawMessage)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: {
+                    raw: encodedMessage,
+                    threadId: email.providerThreadId,
+                },
+            });
+        } else {
+            // Microsoft: send reply
+            const { sendMicrosoftReply } = await import('../services/microsoftService.js');
+            const senderMatch = email.sender.match(/<(.+?)>/);
+            const toAddress = senderMatch ? senderMatch[1] : email.sender;
+            await sendMicrosoftReply(connection, toAddress, email.subject, replyText, email.providerThreadId);
+        }
+
+        res.json({ message: 'Reply sent successfully' });
+    } catch (error) {
+        console.error('Send reply error:', error.message);
+        res.status(500).json({ message: 'Failed to send reply' });
+    }
+};
+
+export { syncEmails, getEmails, generateDraft, sendReply };

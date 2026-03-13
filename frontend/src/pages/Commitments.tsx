@@ -22,6 +22,7 @@ import { CommitmentListSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
 import type { Commitment, Email } from '../types'
+import { getCached, setCache } from '../lib/cache'
 
 type FilterPriority = 'all' | 'high' | 'medium' | 'low'
 type FilterStatus = 'all' | 'pending' | 'completed'
@@ -47,13 +48,21 @@ function Commitments() {
   }, [activeConnection, page])
 
   async function fetchCommitments() {
+    const cacheKey = `commitments-${activeConnection}-${page}`
+    const cached = getCached<{ commitments: Commitment[]; totalPages: number; totalCommitments: number }>(cacheKey)
+    if (cached) {
+      setCommitments(cached.commitments)
+      setTotalPages(cached.totalPages)
+      setTotalCommitments(cached.totalCommitments)
+    }
     try {
       const { data } = await api.get(`/api/commitments?connectionId=${activeConnection}&page=${page}&limit=20`)
       setCommitments(data.commitments)
       setTotalPages(data.pagination.pages)
       setTotalCommitments(data.pagination.total)
+      setCache(cacheKey, { commitments: data.commitments, totalPages: data.pagination.pages, totalCommitments: data.pagination.total })
     } catch (err) {
-      toast('Failed to load commitments', 'error')
+      if (!cached) toast('Failed to load commitments', 'error')
     }
   }
 

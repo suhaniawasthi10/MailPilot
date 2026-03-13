@@ -24,7 +24,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const activeEmail = connections.find((c) => c._id === activeConnection)?.emailAddress
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex">
+    <div className="h-screen bg-zinc-950 flex overflow-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
@@ -112,7 +112,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Mobile header */}
         <header className="lg:hidden h-16 flex items-center justify-between px-4 border-b border-zinc-800 bg-zinc-900/50">
           <div className="flex items-center gap-3">

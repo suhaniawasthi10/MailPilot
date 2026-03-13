@@ -21,6 +21,7 @@ import {
   MailX,
   Inbox,
   Tag,
+  Send,
 } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -30,6 +31,7 @@ import { useSocket } from '../context/SocketContext'
 import type { Email, EmailCategory } from '../types'
 import { getAvatarColor } from '../lib/avatarColor'
 import { timeAgo } from '../lib/formatDate'
+import { getCached, setCache } from '../lib/cache'
 
 // Safely extract plain text from HTML email bodies to prevent XSS attacks.
 const stripHtml = (html: string): string => {
@@ -73,13 +75,14 @@ function Emails() {
   const socket = useSocket()
   const [emails, setEmails] = useState<Email[]>([])
   const [syncing, setSyncing] = useState(false)
-  const [syncLimit, setSyncLimit] = useState(10)
+  const [syncLimit, setSyncLimit] = useState('25')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<EmailCategory | 'all' | 'priority'>('priority')
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [generatingDraft, setGeneratingDraft] = useState(false)
   const [draftReply, setDraftReply] = useState('')
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalEmails, setTotalEmails] = useState(0)
@@ -128,11 +131,19 @@ function Emails() {
   }, [socket, activeConnection])
 
   async function fetchEmails() {
+    const cacheKey = `emails-${activeConnection}-${page}`
+    const cached = getCached<{ emails: Email[]; totalPages: number; totalEmails: number }>(cacheKey)
+    if (cached) {
+      setEmails(cached.emails)
+      setTotalPages(cached.totalPages)
+      setTotalEmails(cached.totalEmails)
+    }
     try {
       const { data } = await api.get(`/api/emails?connectionId=${activeConnection}&page=${page}&limit=20`)
       setEmails(data.emails)
       setTotalPages(data.pagination.pages)
       setTotalEmails(data.pagination.total)
+      setCache(cacheKey, { emails: data.emails, totalPages: data.pagination.pages, totalEmails: data.pagination.total })
     } catch (err) {
       // Silent fail — only toast on explicit user actions
     }
@@ -142,7 +153,7 @@ function Emails() {
     if (!activeConnection || syncing) return
     setSyncing(true)
     try {
-      const { data } = await api.post('/api/emails/sync', { connectionId: activeConnection, limit: syncLimit })
+      const { data } = await api.post('/api/emails/sync', { connectionId: activeConnection, limit: parseInt(syncLimit) || 25 })
       toast(`Synced ${data.emails?.length || 0} emails`, 'success')
       await fetchEmails()
     } catch (err) {
@@ -171,6 +182,20 @@ function Emails() {
     setCopied(true)
     toast('Copied to clipboard', 'success')
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSendReply = async () => {
+    if (!selectedEmail || !draftReply.trim() || sending) return
+    setSending(true)
+    try {
+      await api.post(`/api/emails/send-reply/${selectedEmail._id}`, { replyText: draftReply })
+      toast('Reply sent!', 'success')
+      setDraftReply('')
+    } catch {
+      toast('Failed to send reply', 'error')
+    } finally {
+      setSending(false)
+    }
   }
 
   // Filter by search + category
@@ -300,8 +325,23 @@ function Emails() {
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{draftReply}</p>
-                <p className="text-[11px] text-zinc-600">Draft has been saved to your {connections.find(c => c._id === activeConnection)?.provider === 'google' ? 'Gmail' : 'Outlook'} drafts.</p>
+                <textarea
+                  value={draftReply}
+                  onChange={(e) => setDraftReply(e.target.value)}
+                  rows={6}
+                  className="w-full bg-zinc-900/60 border border-zinc-700/50 rounded-lg px-3 py-2.5 text-sm text-zinc-200 leading-relaxed focus:outline-none focus:border-indigo-500 resize-y"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-zinc-600">Draft saved to {connections.find(c => c._id === activeConnection)?.provider === 'google' ? 'Gmail' : 'Outlook'}. Edit above and send directly.</p>
+                  <button
+                    onClick={handleSendReply}
+                    disabled={sending || !draftReply.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sending ? 'Sending...' : 'Send Reply'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -319,16 +359,15 @@ function Emails() {
           <p className="text-sm text-zinc-500 mt-1">{totalEmails} email{totalEmails !== 1 ? 's' : ''}{activeCategory !== 'all' ? ` in ${activeCategory === 'priority' ? 'priority inbox' : activeCategory}` : ''}</p>
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <input
+            type="number"
+            min={1}
+            max={100}
             value={syncLimit}
-            onChange={(e) => setSyncLimit(Number(e.target.value))}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-          >
-            <option value={10}>10 emails</option>
-            <option value={20}>20 emails</option>
-            <option value={30}>30 emails</option>
-            <option value={50}>50 emails</option>
-          </select>
+            onChange={(e) => setSyncLimit(e.target.value)}
+            className="w-16 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-2.5 text-sm text-zinc-300 text-center focus:outline-none focus:border-indigo-500"
+            title="Number of emails to sync"
+          />
           <button
             onClick={handleSync}
             disabled={syncing}

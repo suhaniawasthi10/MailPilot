@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema(
         name: {
             type: String,
         },
+        emailSignature: {
+            type: String,
+            default: '',
+        },
         // accessToken and refreshToken have been moved to EmailConnection model
     },
     {

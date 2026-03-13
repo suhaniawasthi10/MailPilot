@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Mail,
   Plus,
   Loader2,
   ExternalLink,
   Trash2,
+  Save,
+  Type,
+  Bold,
+  Italic,
+  Link,
 } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -16,6 +21,32 @@ function Settings() {
   const { toast } = useToast()
   const { connections, loading, refresh } = useConnections()
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [savingSignature, setSavingSignature] = useState(false)
+  const editorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    api.get('/api/user/signature').then(({ data }) => {
+      if (editorRef.current) editorRef.current.innerHTML = data.signature || ''
+    }).catch(() => {})
+  }, [])
+
+  const handleSaveSignature = async () => {
+    setSavingSignature(true)
+    try {
+      const html = editorRef.current?.innerHTML || ''
+      await api.put('/api/user/signature', { signature: html })
+      toast('Signature saved', 'success')
+    } catch {
+      toast('Failed to save signature', 'error')
+    } finally {
+      setSavingSignature(false)
+    }
+  }
+
+  const execCmd = (command: string, value?: string) => {
+    document.execCommand(command, false, value)
+    editorRef.current?.focus()
+  }
 
   const handleDisconnect = async (id: string, emailAddress: string) => {
     if (!confirm(`Disconnect ${emailAddress}? This will also delete all synced emails and commitments for this account.`)) {
@@ -162,6 +193,73 @@ function Settings() {
             </div>
             <Plus className="w-4 h-4 text-zinc-600" />
           </button>
+        </div>
+      </div>
+
+      {/* Email Signature */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Email Signature</h2>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-zinc-800 bg-zinc-900/60">
+            <button
+              onClick={() => execCmd('bold')}
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="Bold"
+            >
+              <Bold className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => execCmd('italic')}
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="Italic"
+            >
+              <Italic className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                const url = prompt('Enter URL:')
+                if (url) execCmd('createLink', url)
+              }}
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="Add link"
+            >
+              <Link className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-px h-4 bg-zinc-700 mx-1" />
+            <button
+              onClick={() => execCmd('fontSize', '2')}
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors text-xs"
+              title="Small text"
+            >
+              <Type className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => execCmd('fontSize', '4')}
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors text-xs"
+              title="Large text"
+            >
+              <Type className="w-4 h-4" />
+            </button>
+          </div>
+          {/* Editor */}
+          <div
+            ref={editorRef}
+            contentEditable
+            className="min-h-[120px] max-h-[200px] overflow-y-auto px-4 py-3 text-sm text-zinc-200 focus:outline-none [&_a]:text-indigo-400 [&_a]:underline"
+          />
+          {/* Save */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+            <p className="text-xs text-zinc-600">This signature will be appended to all AI-generated drafts.</p>
+            <button
+              onClick={handleSaveSignature}
+              disabled={savingSignature}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {savingSignature ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Save
+            </button>
+          </div>
         </div>
       </div>
 
