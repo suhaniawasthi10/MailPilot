@@ -3,6 +3,7 @@ import { disconnectSocket } from '../context/SocketContext'
 import { LayoutDashboard, Mail, ListChecks, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useConnections } from '../context/ConnectionContext'
+import ComposeEmail from './ComposeEmail'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -138,6 +139,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <ComposeEmail />
     </div>
   )
 }

@@ -10,7 +10,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Briefcase,
   Users,
   Newspaper,
@@ -22,15 +21,32 @@ import {
   Inbox,
   Tag,
   Send,
+  Wand2,
+  Reply,
+  ReplyAll,
+  Forward,
+  ChevronDown,
 } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
-import { EmailListSkeleton } from '../components/Skeleton'
+import { EmailsPageSkeleton } from '../components/Skeleton'
 import { useSocket } from '../context/SocketContext'
 import type { Email, EmailCategory } from '../types'
 import { getAvatarColor } from '../lib/avatarColor'
 import { timeAgo } from '../lib/formatDate'
+
+interface ThreadMessage {
+  id: string
+  threadId: string
+  sender: string
+  to: string
+  cc: string
+  subject: string
+  body: string
+  receivedAt: string
+  snippet: string
+}
 
 // Safely extract plain text from HTML email bodies to prevent XSS attacks.
 const stripHtml = (html: string): string => {
@@ -82,9 +98,19 @@ function Emails() {
   const [draftReply, setDraftReply] = useState('')
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [showPromptInput, setShowPromptInput] = useState(false)
+  const [threadMessages, setThreadMessages] = useState<ThreadMessage[]>([])
+  const [loadingThread, setLoadingThread] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<{ messageId: string; mode: 'reply' | 'reply-all' | 'forward' } | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [forwardTo, setForwardTo] = useState('')
+  const [sendingThreadReply, setSendingThreadReply] = useState(false)
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalEmails, setTotalEmails] = useState(0)
+  const [loadingEmails, setLoadingEmails] = useState(true)
 
   // Fetch emails when connection or page changes
   useEffect(() => {
@@ -131,6 +157,7 @@ function Emails() {
   }, [socket, activeConnection])
 
   async function fetchEmails() {
+    setLoadingEmails(true)
     try {
       const { data } = await api.get(`/api/emails?connectionId=${activeConnection}&page=${page}&limit=20`)
       setEmails(data.emails)
@@ -138,6 +165,8 @@ function Emails() {
       setTotalEmails(data.pagination.total)
     } catch (err) {
       // Silent fail — only toast on explicit user actions
+    } finally {
+      setLoadingEmails(false)
     }
   }
 
@@ -155,13 +184,17 @@ function Emails() {
     }
   }
 
-  const handleGenerateDraft = async (emailId: string) => {
+  const handleGenerateDraft = async (emailId: string, prompt?: string) => {
     setGeneratingDraft(true)
     setDraftReply('')
     try {
-      const { data } = await api.post(`/api/emails/generate-draft/${emailId}`)
+      const { data } = await api.post(`/api/emails/generate-draft/${emailId}`, {
+        customPrompt: prompt || undefined,
+      })
       setDraftReply(data.replyText)
       toast('AI reply generated and saved as draft', 'success')
+      setShowPromptInput(false)
+      setCustomPrompt('')
     } catch (err) {
       toast('Failed to generate reply', 'error')
     } finally {
@@ -183,11 +216,107 @@ function Emails() {
       await api.post(`/api/emails/send-reply/${selectedEmail._id}`, { replyText: draftReply })
       toast('Reply sent!', 'success')
       setDraftReply('')
+      // Refresh thread to show sent reply
+      if (selectedEmail) fetchThread(selectedEmail._id)
     } catch {
       toast('Failed to send reply', 'error')
     } finally {
       setSending(false)
     }
+  }
+
+  const fetchThread = async (emailId: string) => {
+    setLoadingThread(true)
+    try {
+      const { data } = await api.get(`/api/emails/thread/${emailId}`)
+      setThreadMessages(data.messages)
+      // Expand the last message by default
+      if (data.messages.length > 0) {
+        setExpandedMessages(new Set([data.messages[data.messages.length - 1].id]))
+      }
+    } catch {
+      toast('Failed to load thread', 'error')
+    } finally {
+      setLoadingThread(false)
+    }
+  }
+
+  const handleSelectEmail = (email: Email) => {
+    setSelectedEmail(email)
+    setDraftReply('')
+    setReplyingTo(null)
+    setReplyText('')
+    setForwardTo('')
+    fetchThread(email._id)
+  }
+
+  const handleThreadReply = async () => {
+    if (!replyingTo || !activeConnection || sendingThreadReply) return
+    if (replyingTo.mode === 'forward' && !forwardTo.trim()) return
+    if (replyingTo.mode !== 'forward' && !replyText.trim()) return
+
+    const msg = threadMessages.find((m) => m.id === replyingTo.messageId)
+    if (!msg) return
+
+    setSendingThreadReply(true)
+    try {
+      if (replyingTo.mode === 'forward') {
+        await api.post(`/api/emails/forward/${selectedEmail!._id}`, {
+          to: forwardTo.trim(),
+          message: replyText.trim(),
+        })
+        toast('Email forwarded!', 'success')
+      } else {
+        const senderEmail = extractEmail(msg.sender)
+        let toAddr = senderEmail
+        let ccAddr = ''
+
+        if (replyingTo.mode === 'reply-all') {
+          // Include all To + CC except yourself
+          const myEmail = connections.find((c) => c._id === activeConnection)?.emailAddress || ''
+          const allRecipients = [msg.to, msg.cc].filter(Boolean).join(', ')
+          const addresses = allRecipients.split(',').map((a) => extractEmail(a.trim())).filter((a) => a && a !== myEmail)
+          if (!addresses.includes(senderEmail)) addresses.unshift(senderEmail)
+          toAddr = addresses[0] || senderEmail
+          ccAddr = addresses.slice(1).join(', ')
+        }
+
+        await api.post('/api/emails/thread-reply', {
+          connectionId: activeConnection,
+          threadId: msg.threadId,
+          messageId: msg.id,
+          to: toAddr,
+          cc: ccAddr,
+          subject: msg.subject,
+          replyText: replyText.trim(),
+        })
+        toast('Reply sent!', 'success')
+      }
+
+      setReplyingTo(null)
+      setReplyText('')
+      setForwardTo('')
+      // Refresh thread
+      if (selectedEmail) fetchThread(selectedEmail._id)
+    } catch {
+      toast('Failed to send', 'error')
+    } finally {
+      setSendingThreadReply(false)
+    }
+  }
+
+  const extractEmail = (sender: string): string => {
+    const match = sender?.match(/<(.+?)>/)
+    return match ? match[1] : sender || ''
+  }
+
+  const toggleExpand = (id: string) => {
+    setExpandedMessages((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   // Filter by search + category
@@ -226,14 +355,8 @@ function Emails() {
     return match ? { name: match[1].trim(), email: match[2] } : { name: sender, email: '' }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        <div className="animate-pulse rounded-lg bg-zinc-800/60 w-32 h-8" />
-        <div className="animate-pulse rounded-lg bg-zinc-800/60 w-full h-10" />
-        <EmailListSkeleton />
-      </div>
-    )
+  if (loading || (loadingEmails && emails.length === 0)) {
+    return <EmailsPageSkeleton />
   }
 
   if (connections.length === 0) {
@@ -250,94 +373,255 @@ function Emails() {
     )
   }
 
-  // Detail view
+  // Thread / Detail view
   if (selectedEmail) {
-    const { name: senderName, email: senderEmail } = parseSender(selectedEmail.sender)
-    const detailAvatar = getAvatarColor(senderName || '')
+    const handleBack = () => {
+      setSelectedEmail(null)
+      setDraftReply('')
+      setThreadMessages([])
+      setReplyingTo(null)
+      setReplyText('')
+      setForwardTo('')
+      setShowPromptInput(false)
+      setCustomPrompt('')
+    }
 
     return (
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6 animate-slide-in-right">
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-4 animate-fade-in">
         <button
-          onClick={() => { setSelectedEmail(null); setDraftReply('') }}
+          onClick={handleBack}
           className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" /> Back to emails
         </button>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden animate-fade-in">
-          <div className="p-6 border-b border-zinc-800 space-y-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold text-zinc-100 flex-1">
-                {selectedEmail.subject || '(No subject)'}
-              </h2>
-              <CategoryBadge category={selectedEmail.category} />
-            </div>
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full ${detailAvatar.bg} border ${detailAvatar.border} flex items-center justify-center`}>
-                <span className={`text-sm font-medium ${detailAvatar.text}`}>{senderName?.charAt(0)?.toUpperCase() || '?'}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-200">{senderName}</p>
-                {senderEmail && <p className="text-xs text-zinc-500">{senderEmail}</p>}
-              </div>
-              <span className="ml-auto text-xs text-zinc-600 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {timeAgo(selectedEmail.receivedAt)}
-              </span>
-            </div>
-          </div>
+        {/* Thread subject header */}
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-zinc-100 flex-1">
+            {selectedEmail.subject || '(No subject)'}
+          </h2>
+          <CategoryBadge category={selectedEmail.category} />
+          <span className="text-xs text-zinc-600">{threadMessages.length} message{threadMessages.length !== 1 ? 's' : ''}</span>
+        </div>
 
-          <div className="p-6">
-            <pre className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto font-sans">
-              {stripHtml(selectedEmail.body || selectedEmail.snippet || '')}
-            </pre>
-          </div>
-
-          <div className="p-6 border-t border-zinc-800 space-y-4">
+        {/* AI Draft (for the original generate-draft endpoint) */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => handleGenerateDraft(selectedEmail._id)}
               disabled={generatingDraft}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {generatingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generatingDraft ? 'Generating...' : 'Generate AI Reply'}
+              {generatingDraft ? 'Generating...' : 'AI Reply'}
             </button>
+            <button
+              onClick={() => setShowPromptInput(!showPromptInput)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
+            >
+              <Wand2 className="w-3.5 h-3.5" /> Custom
+            </button>
+          </div>
 
-            {draftReply && (
-              <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-indigo-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3" /> AI Draft Reply
-                  </span>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
-                  >
-                    {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <textarea
-                  value={draftReply}
-                  onChange={(e) => setDraftReply(e.target.value)}
-                  rows={6}
-                  className="w-full bg-zinc-900/60 border border-zinc-700/50 rounded-lg px-3 py-2.5 text-sm text-zinc-200 leading-relaxed focus:outline-none focus:border-indigo-500 resize-y"
-                />
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-zinc-600">Draft saved to {connections.find(c => c._id === activeConnection)?.provider === 'google' ? 'Gmail' : 'Outlook'}. Edit above and send directly.</p>
-                  <button
-                    onClick={handleSendReply}
-                    disabled={sending || !draftReply.trim()}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    {sending ? 'Sending...' : 'Send Reply'}
-                  </button>
+          {showPromptInput && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && customPrompt.trim()) handleGenerateDraft(selectedEmail._id, customPrompt.trim())
+                }}
+                placeholder='e.g. "Decline politely" or "Ask for a meeting"'
+                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={() => { if (customPrompt.trim()) handleGenerateDraft(selectedEmail._id, customPrompt.trim()) }}
+                disabled={!customPrompt.trim() || generatingDraft}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                Generate
+              </button>
+            </div>
+          )}
+
+          {draftReply && (
+            <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-indigo-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3" /> AI Draft Reply
+                </span>
+                <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">
+                  {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <textarea
+                value={draftReply}
+                onChange={(e) => setDraftReply(e.target.value)}
+                rows={5}
+                className="w-full bg-zinc-900/60 border border-zinc-700/50 rounded-lg px-3 py-2.5 text-sm text-zinc-200 leading-relaxed focus:outline-none focus:border-indigo-500 resize-y"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-zinc-600">Edit above and send directly.</p>
+                <button
+                  onClick={handleSendReply}
+                  disabled={sending || !draftReply.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {sending ? 'Sending...' : 'Send Reply'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Thread messages */}
+        {loadingThread ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-zinc-800 animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="w-32 h-4 bg-zinc-800 animate-pulse rounded" />
+                    <div className="w-48 h-3 bg-zinc-800/60 animate-pulse rounded" />
+                  </div>
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {threadMessages.map((msg) => {
+              const { name: msgName, email: msgEmail } = parseSender(msg.sender)
+              const msgAvatar = getAvatarColor(msgName || '')
+              const isExpanded = expandedMessages.has(msg.id)
+              const isReplyingThis = replyingTo?.messageId === msg.id
+
+              return (
+                <div key={msg.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+                  {/* Message header — click to expand/collapse */}
+                  <button
+                    onClick={() => toggleExpand(msg.id)}
+                    className="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                  >
+                    <div className={`w-9 h-9 rounded-full ${msgAvatar.bg} border ${msgAvatar.border} flex items-center justify-center shrink-0`}>
+                      <span className={`text-xs font-medium ${msgAvatar.text}`}>{msgName?.charAt(0)?.toUpperCase() || '?'}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-zinc-200">{msgName}</p>
+                        {msgEmail && <p className="text-xs text-zinc-500 truncate">&lt;{msgEmail}&gt;</p>}
+                      </div>
+                      {!isExpanded && (
+                        <p className="text-xs text-zinc-500 truncate mt-0.5">{msg.snippet}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-zinc-600">{timeAgo(msg.receivedAt)}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* Expanded body */}
+                  {isExpanded && (
+                    <>
+                      {/* To / CC info */}
+                      {(msg.to || msg.cc) && (
+                        <div className="px-5 pb-2 text-xs text-zinc-600 space-y-0.5">
+                          {msg.to && <p>To: {msg.to}</p>}
+                          {msg.cc && <p>Cc: {msg.cc}</p>}
+                        </div>
+                      )}
+
+                      <div className="px-5 pb-4">
+                        <pre className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words font-sans">
+                          {stripHtml(msg.body || msg.snippet || '')}
+                        </pre>
+                      </div>
+
+                      {/* Per-message Reply / Reply All / Forward buttons */}
+                      <div className="px-5 pb-4 flex items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'reply' }); setReplyText(''); setForwardTo('') }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                            isReplyingThis && replyingTo?.mode === 'reply'
+                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
+                          }`}
+                        >
+                          <Reply className="w-3.5 h-3.5" /> Reply
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'reply-all' }); setReplyText(''); setForwardTo('') }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                            isReplyingThis && replyingTo?.mode === 'reply-all'
+                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
+                          }`}
+                        >
+                          <ReplyAll className="w-3.5 h-3.5" /> Reply all
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'forward' }); setReplyText(''); setForwardTo('') }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                            isReplyingThis && replyingTo?.mode === 'forward'
+                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
+                          }`}
+                        >
+                          <Forward className="w-3.5 h-3.5" /> Forward
+                        </button>
+                      </div>
+
+                      {/* Inline reply/forward form */}
+                      {isReplyingThis && (
+                        <div className="px-5 pb-5 space-y-3 border-t border-zinc-800/60 pt-4">
+                          {replyingTo.mode === 'forward' && (
+                            <input
+                              type="email"
+                              value={forwardTo}
+                              onChange={(e) => setForwardTo(e.target.value)}
+                              placeholder="Forward to email address"
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+                            />
+                          )}
+                          <textarea
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            rows={4}
+                            placeholder={replyingTo.mode === 'forward' ? 'Add a message (optional)...' : 'Write your reply...'}
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 resize-y"
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleThreadReply}
+                              disabled={sendingThreadReply || (replyingTo.mode === 'forward' ? !forwardTo.trim() : !replyText.trim())}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              {sendingThreadReply ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                              {sendingThreadReply ? 'Sending...' : replyingTo.mode === 'forward' ? 'Forward' : 'Send'}
+                            </button>
+                            <button
+                              onClick={() => { setReplyingTo(null); setReplyText(''); setForwardTo('') }}
+                              className="px-3 py-2 rounded-lg text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     )
   }
@@ -436,7 +720,7 @@ function Emails() {
             return (
               <button
                 key={email._id}
-                onClick={() => setSelectedEmail(email)}
+                onClick={() => handleSelectEmail(email)}
                 className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer"
               >
                 <div className={`w-9 h-9 rounded-full ${avatar.bg} border ${avatar.border} flex items-center justify-center shrink-0 mt-0.5`}>

@@ -282,14 +282,20 @@ const isValidDate = (dateStr) => {
  * Unlike extractCommitments, this returns plain text (the reply body),
  * not JSON — because we want natural language for the email draft.
  */
-const generateReply = async (subject, sender, body) => {
+const generateReply = async (subject, sender, body, customPrompt) => {
     try {
-        const prompt = `You are a professional email assistant. Write a concise, professional reply to the following email.
+        const baseInstructions = customPrompt
+            ? `You are a professional email assistant. Write a reply to the following email based on these instructions: "${customPrompt}"
+
+Keep the reply professional and relevant.`
+            : `You are a professional email assistant. Write a concise, professional reply to the following email.
 
 Keep the reply:
 - Polite and professional
 - Brief (2-4 sentences)
-- Relevant to the email content
+- Relevant to the email content`;
+
+        const prompt = `${baseInstructions}
 
 Do NOT include a subject line. Just write the reply body text.
 
@@ -408,4 +414,35 @@ ${emailList}`;
     return results;
 };
 
-export { extractCommitments, extractCommitmentsBatch, generateReply, generateReminder, categorizeEmail, categorizeEmails, delay };
+const generateComposeText = async (prompt, subject, to) => {
+    try {
+        const systemPrompt = `You are a professional email assistant. Write an email body based on the user's instructions.
+
+Keep the email:
+- Professional and well-structured
+- Concise and to the point
+
+Do NOT include a subject line or greeting headers like "Subject:" — just write the email body with greeting and sign-off.
+
+${to ? `Recipient: ${to}` : ''}
+${subject ? `Subject: ${subject}` : ''}
+
+User instructions: "${prompt}"
+
+EMAIL BODY:`;
+
+        const data = await callGroqWithRetry({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: systemPrompt }],
+            temperature: 0.7,
+            max_tokens: 512,
+        });
+
+        return data.choices[0].message.content.trim();
+    } catch (error) {
+        console.error('Groq compose generation error:', error.message);
+        return null;
+    }
+};
+
+export { extractCommitments, extractCommitmentsBatch, generateReply, generateComposeText, generateReminder, categorizeEmail, categorizeEmails, delay };

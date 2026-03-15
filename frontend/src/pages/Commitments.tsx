@@ -18,7 +18,7 @@ import {
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
-import { CommitmentListSkeleton } from '../components/Skeleton'
+import { CommitmentsPageSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
 import type { Commitment, Email } from '../types'
@@ -40,6 +40,7 @@ function Commitments() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCommitments, setTotalCommitments] = useState(0)
+  const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
     if (!activeConnection) return
@@ -47,6 +48,7 @@ function Commitments() {
   }, [activeConnection, page])
 
   async function fetchCommitments() {
+    setLoadingData(true)
     try {
       const { data } = await api.get(`/api/commitments?connectionId=${activeConnection}&page=${page}&limit=20`)
       setCommitments(data.commitments)
@@ -54,6 +56,8 @@ function Commitments() {
       setTotalCommitments(data.pagination.total)
     } catch (err) {
       toast('Failed to load commitments', 'error')
+    } finally {
+      setLoadingData(false)
     }
   }
 
@@ -130,14 +134,8 @@ function Commitments() {
   const isOverdue = (c: Commitment) =>
     c.status === 'pending' && c.deadline && new Date(c.deadline) < new Date()
 
-  if (loading) {
-    return (
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        <div className="animate-pulse rounded-lg bg-zinc-800/60 w-40 h-8" />
-        <div className="animate-pulse rounded-lg bg-zinc-800/60 w-full h-10" />
-        <CommitmentListSkeleton />
-      </div>
-    )
+  if (loading || (loadingData && commitments.length === 0)) {
+    return <CommitmentsPageSkeleton />
   }
 
   if (connections.length === 0) {

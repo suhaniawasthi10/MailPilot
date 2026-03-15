@@ -39,11 +39,13 @@ function Dashboard() {
   const [commitments, setCommitments] = useState<Commitment[]>([])
   const [syncing, setSyncing] = useState(false)
   const [extracting, setExtracting] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
     if (!activeConnection) return
 
     async function fetchData() {
+      setLoadingData(true)
       try {
         const [emailsRes, commitmentsRes] = await Promise.all([
           api.get(`/api/emails?connectionId=${activeConnection}&page=1&limit=1`),
@@ -63,6 +65,8 @@ function Dashboard() {
         setCommitments(comms)
       } catch (err) {
         toast('Failed to load dashboard data', 'error')
+      } finally {
+        setLoadingData(false)
       }
     }
     fetchData()
@@ -147,7 +151,7 @@ function Dashboard() {
     }
   }
 
-  if (loading) {
+  if (loading || loadingData) {
     return <DashboardSkeleton />
   }
 

@@ -14,6 +14,7 @@ import {
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
+import { SettingsSkeleton } from '../components/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -75,11 +76,7 @@ function Settings() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[60vh]">
-        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-      </div>
-    )
+    return <SettingsSkeleton />
   }
 
   return (
