@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X, Send, Loader2, Minus, Maximize2, Minimize2, Sparkles } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from './Toast'
@@ -7,19 +7,35 @@ import { useConnections } from '../context/ConnectionContext'
 function ComposeEmail() {
   const { toast } = useToast()
   const { connections, activeConnection } = useConnections()
+  const bodyRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [minimized, setMinimized] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [to, setTo] = useState('')
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('')
   const [showAiPrompt, setShowAiPrompt] = useState(false)
   const [generatingAi, setGeneratingAi] = useState(false)
+  const [signatureHtml, setSignatureHtml] = useState('')
+
+  // Fetch signature when compose opens
+  useEffect(() => {
+    if (!open) return
+    api.get('/api/user/signature').then(({ data }) => {
+      const sig = data.signature || ''
+      setSignatureHtml(sig)
+      if (bodyRef.current && sig) {
+        bodyRef.current.innerHTML = `<br><br><div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">${sig}</div>`
+      }
+    }).catch(() => {})
+  }, [open])
+
+  const getBodyContent = () => bodyRef.current?.innerText?.trim() || ''
+  const getBodyHtml = () => bodyRef.current?.innerHTML || ''
 
   const handleSend = async () => {
-    if (!to.trim() || !body.trim() || sending) return
+    if (!to.trim() || !getBodyContent() || sending) return
     if (!activeConnection) {
       toast('No email account connected', 'error')
       return
@@ -29,7 +45,7 @@ function ComposeEmail() {
       await api.post('/api/emails/compose', {
         to: to.trim(),
         subject: subject.trim(),
-        body: body.trim(),
+        body: getBodyHtml(),
         connectionId: activeConnection,
       })
       toast('Email sent!', 'success')
@@ -50,7 +66,13 @@ function ComposeEmail() {
         subject: subject.trim(),
         to: to.trim(),
       })
-      setBody(data.text)
+      // Set AI text + signature into contentEditable
+      if (bodyRef.current) {
+        const sigBlock = signatureHtml
+          ? `<br><br><div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">${signatureHtml}</div>`
+          : ''
+        bodyRef.current.innerHTML = data.text.replace(/\n/g, '<br>') + sigBlock
+      }
       setShowAiPrompt(false)
       setAiPrompt('')
       toast('AI draft generated', 'success')
@@ -67,13 +89,13 @@ function ComposeEmail() {
     setMaximized(false)
     setTo('')
     setSubject('')
-    setBody('')
+    if (bodyRef.current) bodyRef.current.innerHTML = ''
     setAiPrompt('')
     setShowAiPrompt(false)
   }
 
   const handleDiscard = () => {
-    if (to || subject || body) {
+    if (to || subject || getBodyContent()) {
       if (!confirm('Discard this draft?')) return
     }
     handleClose()
@@ -86,7 +108,7 @@ function ComposeEmail() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="w-5 h-5" />
         Compose
@@ -189,11 +211,11 @@ function ComposeEmail() {
         </div>
 
         {/* Body */}
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Write your message..."
-          className={`flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 px-4 py-3 focus:outline-none resize-none ${
+        <div
+          ref={bodyRef}
+          contentEditable
+          data-placeholder="Write your message..."
+          className={`flex-1 bg-transparent text-sm text-zinc-200 px-4 py-3 focus:outline-none overflow-y-auto [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-zinc-600 [&_a]:text-indigo-400 [&_a]:underline ${
             maximized ? '' : 'min-h-[200px]'
           }`}
         />
@@ -228,7 +250,7 @@ function ComposeEmail() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSend}
-              disabled={sending || !to.trim() || !body.trim()}
+              disabled={sending || !to.trim()}
               className="flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

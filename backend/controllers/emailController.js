@@ -246,15 +246,10 @@ const generateDraft = async (req, res) => {
             result = await createGoogleDraft(connection, email, replyText, signature);
         }
 
-        // Include signature in the reply text shown to user
-        const fullReplyText = signature
-            ? `${replyText}\n\n--\n${signature.replace(/<[^>]+>/g, '')}`
-            : replyText;
-
         res.json({
             message: 'Draft created successfully',
             draftId: result.draftId,
-            replyText: fullReplyText,
+            replyText,
         });
     } catch (error) {
         console.error('Generate draft error:', error.message);
@@ -267,7 +262,7 @@ const generateDraft = async (req, res) => {
 // @body    { replyText }
 const sendReply = async (req, res) => {
     try {
-        const { replyText } = req.body;
+        const { replyText, draftId } = req.body;
         if (!replyText) {
             return res.status(400).json({ message: 'replyText is required' });
         }
@@ -282,40 +277,47 @@ const sendReply = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this email' });
         }
 
-        // Fetch user signature
-        const user = await User.findById(req.user.id).select('emailSignature');
-        const signature = user?.emailSignature || '';
-
         if (connection.provider === 'google') {
             const gmail = getGmailClient(connection);
 
-            const escapedReply = replyText.replace(/\n/g, '<br>');
-            const htmlBody = signature
-                ? `${escapedReply}<br><br>--<br>${signature}`
-                : escapedReply;
+            if (draftId) {
+                // Send the existing draft (avoids duplicate)
+                await gmail.users.drafts.send({
+                    userId: 'me',
+                    requestBody: { id: draftId },
+                });
+            } else {
+                // No draft — send a new message
+                const user = await User.findById(req.user.id).select('emailSignature');
+                const signature = user?.emailSignature || '';
+                const escapedReply = replyText.replace(/\n/g, '<br>');
+                const htmlBody = signature
+                    ? `${escapedReply}<br><br>--<br>${signature}`
+                    : escapedReply;
 
-            const rawMessage = [
-                `To: ${email.sender}`,
-                `Subject: Re: ${email.subject}`,
-                `In-Reply-To: ${email.providerMessageId}`,
-                `Content-Type: text/html; charset=utf-8`,
-                '',
-                htmlBody,
-            ].join('\n');
+                const rawMessage = [
+                    `To: ${email.sender}`,
+                    `Subject: Re: ${email.subject}`,
+                    `In-Reply-To: ${email.providerMessageId}`,
+                    `Content-Type: text/html; charset=utf-8`,
+                    '',
+                    htmlBody,
+                ].join('\n');
 
-            const encodedMessage = Buffer.from(rawMessage)
-                .toString('base64')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
+                const encodedMessage = Buffer.from(rawMessage)
+                    .toString('base64')
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
 
-            await gmail.users.messages.send({
-                userId: 'me',
-                requestBody: {
-                    raw: encodedMessage,
-                    threadId: email.providerThreadId,
-                },
-            });
+                await gmail.users.messages.send({
+                    userId: 'me',
+                    requestBody: {
+                        raw: encodedMessage,
+                        threadId: email.providerThreadId,
+                    },
+                });
+            }
         } else {
             // Microsoft: send reply
             const { sendMicrosoftReply } = await import('../services/microsoftService.js');
@@ -343,14 +345,8 @@ const composeEmail = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized for this connection' });
         }
 
-        // Fetch user signature
-        const user = await User.findById(req.user.id).select('emailSignature');
-        const signature = user?.emailSignature || '';
-
-        const escapedBody = body.replace(/\n/g, '<br>');
-        const htmlBody = signature
-            ? `${escapedBody}<br><br>--<br>${signature}`
-            : escapedBody;
+        // Body comes as HTML from the rich-text composer (signature already included)
+        const htmlBody = body;
 
         if (connection.provider === 'google') {
             const gmail = getGmailClient(connection);
@@ -413,21 +409,13 @@ const generateCompose = async (req, res) => {
             return res.status(400).json({ message: 'prompt is required' });
         }
 
-        const [text, user] = await Promise.all([
-            generateComposeText(prompt, subject, to),
-            User.findById(req.user.id).select('emailSignature'),
-        ]);
+        const text = await generateComposeText(prompt, subject, to);
 
         if (!text) {
             return res.status(500).json({ message: 'Failed to generate email' });
         }
 
-        const signature = user?.emailSignature || '';
-        const fullText = signature
-            ? `${text}\n\n--\n${signature.replace(/<[^>]+>/g, '')}`
-            : text;
-
-        res.json({ text: fullText });
+        res.json({ text });
     } catch (error) {
         console.error('Generate compose error:', error.message);
         res.status(500).json({ message: 'Failed to generate email' });

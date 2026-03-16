@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Mail,
   RefreshCw,
@@ -48,10 +48,53 @@ interface ThreadMessage {
   snippet: string
 }
 
-// Safely extract plain text from HTML email bodies to prevent XSS attacks.
-const stripHtml = (html: string): string => {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  return doc.body.textContent || ''
+// Check if content has HTML tags (beyond plain text)
+const isHtml = (str: string): boolean => /<[a-z][\s\S]*>/i.test(str)
+
+// Renders email HTML safely in a sandboxed iframe that auto-resizes
+function EmailBodyRenderer({ html }: { html: string }) {
+  const iframeRef = React.useRef<HTMLIFrameElement>(null)
+
+  React.useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const doc = iframe.contentDocument
+    if (!doc) return
+
+    doc.open()
+    doc.write(`<!DOCTYPE html>
+      <html><head><style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #d4d4d8; background: transparent; word-wrap: break-word; overflow-wrap: break-word; }
+        img { max-width: 100%; height: auto; border-radius: 4px; }
+        a { color: #818cf8; }
+        blockquote { border-left: 3px solid #3f3f46; margin: 8px 0; padding-left: 12px; color: #a1a1aa; }
+        pre { background: #18181b; padding: 8px 12px; border-radius: 6px; overflow-x: auto; }
+        table { border-collapse: collapse; max-width: 100%; }
+        td, th { padding: 4px 8px; }
+      </style></head><body>${html}</body></html>`)
+    doc.close()
+
+    // Auto-resize iframe to content height
+    const resize = () => {
+      if (iframe.contentDocument?.body) {
+        iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px'
+      }
+    }
+    // Resize after images load
+    const images = doc.querySelectorAll('img')
+    images.forEach((img) => img.addEventListener('load', resize))
+    resize()
+    setTimeout(resize, 300)
+  }, [html])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      sandbox="allow-same-origin"
+      className="w-full border-0 min-h-[60px]"
+      title="Email content"
+    />
+  )
 }
 
 // Category config: icon, label, color for each category
@@ -96,6 +139,7 @@ function Emails() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [generatingDraft, setGeneratingDraft] = useState(false)
   const [draftReply, setDraftReply] = useState('')
+  const [draftId, setDraftId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
@@ -187,11 +231,13 @@ function Emails() {
   const handleGenerateDraft = async (emailId: string, prompt?: string) => {
     setGeneratingDraft(true)
     setDraftReply('')
+    setDraftId(null)
     try {
       const { data } = await api.post(`/api/emails/generate-draft/${emailId}`, {
         customPrompt: prompt || undefined,
       })
       setDraftReply(data.replyText)
+      setDraftId(data.draftId || null)
       toast('AI reply generated and saved as draft', 'success')
       setShowPromptInput(false)
       setCustomPrompt('')
@@ -213,9 +259,10 @@ function Emails() {
     if (!selectedEmail || !draftReply.trim() || sending) return
     setSending(true)
     try {
-      await api.post(`/api/emails/send-reply/${selectedEmail._id}`, { replyText: draftReply })
+      await api.post(`/api/emails/send-reply/${selectedEmail._id}`, { replyText: draftReply, draftId: draftId || undefined })
       toast('Reply sent!', 'success')
       setDraftReply('')
+      setDraftId(null)
       // Refresh thread to show sent reply
       if (selectedEmail) fetchThread(selectedEmail._id)
     } catch {
@@ -538,9 +585,13 @@ function Emails() {
                       )}
 
                       <div className="px-5 pb-4">
-                        <pre className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words font-sans">
-                          {stripHtml(msg.body || msg.snippet || '')}
-                        </pre>
+                        {isHtml(msg.body || '') ? (
+                          <EmailBodyRenderer html={msg.body} />
+                        ) : (
+                          <pre className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words font-sans">
+                            {msg.body || msg.snippet || ''}
+                          </pre>
+                        )}
                       </div>
 
                       {/* Per-message Reply / Reply All / Forward buttons */}

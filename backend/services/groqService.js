@@ -297,7 +297,7 @@ Keep the reply:
 
         const prompt = `${baseInstructions}
 
-Do NOT include a subject line. Just write the reply body text.
+Do NOT include a subject line. Do NOT include any sign-off, signature, or closing like "Best regards", "Sincerely", "[Your Name]", etc. The user's signature is appended automatically. Just write the reply body text only.
 
 ORIGINAL EMAIL:
 Subject: ${subject || '(no subject)'}
@@ -422,7 +422,7 @@ Keep the email:
 - Professional and well-structured
 - Concise and to the point
 
-Do NOT include a subject line or greeting headers like "Subject:" — just write the email body with greeting and sign-off.
+Do NOT include a subject line or greeting headers like "Subject:". Do NOT include any sign-off, signature, or closing like "Best regards", "Sincerely", "[Your Name]", etc. The user's signature is appended automatically. Just write the email body with a greeting and the message content only.
 
 ${to ? `Recipient: ${to}` : ''}
 ${subject ? `Subject: ${subject}` : ''}
