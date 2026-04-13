@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { disconnectSocket } from '../context/SocketContext'
-import { LayoutDashboard, Mail, ListChecks, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Mail, ListChecks, Sparkles, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useConnections } from '../context/ConnectionContext'
 import ComposeEmail from './ComposeEmail'
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/emails', icon: Mail, label: 'Emails' },
   { to: '/commitments', icon: ListChecks, label: 'Commitments' },
+  { to: '/ask', icon: Sparkles, label: 'Ask AI' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

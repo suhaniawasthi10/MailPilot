@@ -40,6 +40,15 @@ const emailSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        // Whether this email has been indexed into the vector store (Chroma)
+        // Used by the RAG pipeline to process only new emails incrementally
+        embedded: {
+            type: Boolean,
+            default: false,
+        },
+        embeddedAt: {
+            type: Date,
+        },
         // AI-assigned category for smart inbox
         category: {
             type: String,

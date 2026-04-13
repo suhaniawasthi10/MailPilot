@@ -9,6 +9,7 @@ import commitmentRoutes from './routes/commitmentRoutes.js';
 import connectionRoutes from './routes/connectionRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import ragRoutes from './routes/ragRoutes.js';
 import { apiLimiter, authLimiter } from './middleware/rateLimit.js';
 import { startWatchRenewalScheduler } from './services/watchService.js';
 import { initSocket } from './services/socketService.js';
@@ -35,6 +36,7 @@ app.use('/api/emails', apiLimiter, emailRoutes);
 app.use('/api/commitments', apiLimiter, commitmentRoutes);
 app.use('/api/connections', apiLimiter, connectionRoutes);
 app.use('/api/user', apiLimiter, userRoutes);
+app.use('/api/rag', apiLimiter, ragRoutes);
 
 // Webhook routes — NO auth, NO rate limiting (called by Google/Microsoft servers)
 app.use('/webhooks', webhookRoutes);

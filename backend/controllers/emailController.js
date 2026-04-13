@@ -4,6 +4,7 @@ import { getVerifiedConnection, getGmailClient } from '../utils/connectionHelper
 import { generateReply as generateReplyFn, generateComposeText, categorizeEmails } from '../services/groqService.js';
 import { fetchMicrosoftEmails, createMicrosoftDraft } from '../services/microsoftService.js';
 import { getEmailBody, getHeader } from '../utils/emailParser.js';
+import { indexEmails } from '../services/embeddingService.js';
 
 // --- GOOGLE: sync emails via Gmail API (parallel batch fetch) ---
 const syncGoogleEmails = async (connection, limit) => {
@@ -111,6 +112,14 @@ const syncEmails = async (req, res) => {
                     await Email.findByIdAndUpdate(uncategorized[i]._id, { category: categories[i] });
                 }
             })().catch((err) => console.error('Background categorization error:', err.message));
+        }
+
+        // Embed unembedded emails into the vector store for RAG search (background)
+        const unembedded = savedEmails.filter((e) => !e.embedded);
+        if (unembedded.length > 0) {
+            indexEmails(unembedded, req.user.id)
+                .then((count) => console.log(`Background embedding: ${count} emails indexed`))
+                .catch((err) => console.error('Background embedding error:', err.message));
         }
     } catch (error) {
         console.error('Sync emails error:', error.message);

@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Emails from './pages/Emails'
 import Commitments from './pages/Commitments'
 import Settings from './pages/Settings'
+import Ask from './pages/Ask'
 import Layout from './components/Layout'
 import { ConnectionProvider } from './context/ConnectionContext'
 import { SocketProvider } from './context/SocketContext'
@@ -47,6 +48,7 @@ function ProtectedRoutes() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/emails" element={<Emails />} />
             <Route path="/commitments" element={<Commitments />} />
+            <Route path="/ask" element={<Ask />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>
