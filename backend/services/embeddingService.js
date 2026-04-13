@@ -325,12 +325,12 @@ const searchEmails = async (query, userId, connectionId = null, topK = 8) => {
     const collection = await getCollection();
     const queryEmbedding = await getEmbedding(query);
 
-    // Build the metadata filter — always include userId for security
-    const where = { userId };
-    if (connectionId) {
-        // If user has multiple email accounts and wants to search just one
-        where.connectionId = connectionId;
-    }
+    // Build the metadata filter — always include userId for security.
+    // Chroma requires multiple conditions to be wrapped in $and,
+    // otherwise it errors with "Expected 'where' to have exactly one operator".
+    const where = connectionId
+        ? { $and: [{ userId: { $eq: userId } }, { connectionId: { $eq: connectionId } }] }
+        : { userId: { $eq: userId } };
 
     const results = await collection.query({
         queryEmbeddings: [queryEmbedding],
@@ -372,7 +372,7 @@ const searchEmails = async (query, userId, connectionId = null, topK = 8) => {
 const deleteEmailEmbeddings = async (emailId) => {
     const collection = await getCollection();
     await collection.delete({
-        where: { emailId: emailId.toString() },
+        where: { emailId: { $eq: emailId.toString() } },
     });
 };
 
