@@ -1,37 +1,112 @@
 @import "tailwindcss";
 
+/* ============================================================================
+ * Design system — MailPilot
+ *
+ * Editorial cream + ink + terracotta. Inspired by Superhuman's restraint
+ * and Anthropic's warm typographic feel. NOT a vibe-coded dark dashboard.
+ *
+ * Color philosophy:
+ * - Cream backgrounds (warm, easy on eyes, "publication" feel)
+ * - Near-black ink with warmth (not pure #000)
+ * - One accent (terracotta) used SPARINGLY — never on every button
+ *
+ * Typography philosophy:
+ * - Newsreader serif for display/numbers (gives "thinking publication" feel)
+ * - Inter for UI (neutral workhorse)
+ * - JetBrains Mono for code/mono numerics
+ * ========================================================================== */
 @theme {
-  --color-brand: #6366f1;
-  --color-brand-hover: #818cf8;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --animate-slide-in: slide-in 0.25s ease-out;
-  --animate-fade-in: fade-in 0.3s ease-out;
-  --animate-fade-in-up: fade-in-up 0.3s ease-out;
+  /* ---- Color: cream / ink / accent ------------------------------------- */
+  --color-cream:        #f7f4ee;   /* primary background, warm parchment */
+  --color-cream-soft:   #fbf9f4;   /* slightly lighter — elevated surfaces */
+  --color-cream-deep:   #efe9dc;   /* sunken / hover background tone      */
+  --color-paper:        #ffffff;   /* card surface that lifts off cream   */
+
+  --color-ink:          #1a1816;   /* primary text — near-black w/ warmth */
+  --color-ink-soft:     #5c5853;   /* secondary text                      */
+  --color-ink-muted:    #908c85;   /* tertiary, captions                  */
+  --color-ink-faint:    #c4bfb6;   /* placeholder, very subtle text       */
+
+  --color-rule:         #e8e3d8;   /* hairline borders & dividers         */
+  --color-rule-strong:  #d8d2c4;   /* slightly stronger rule              */
+
+  --color-accent:       #c44d3d;   /* terracotta — used SPARINGLY         */
+  --color-accent-hover: #a93c2e;
+  --color-accent-soft:  #fdf0ed;   /* tinted accent background            */
+  --color-accent-ink:   #7a2a1f;   /* accent text on accent-soft bg       */
+
+  --color-success:      #3a5a40;   /* moss green for positive states      */
+  --color-success-soft: #ecf2ec;
+  --color-warning:      #b4751a;   /* aged amber                          */
+  --color-warning-soft: #faf2e2;
+  --color-danger:       #a93c2e;   /* slightly deeper terracotta          */
+  --color-danger-soft:  #faeae6;
+
+  /* ---- Legacy zinc tokens (kept so unmigrated pages don't break) ------ */
+  --color-brand:        #6366f1;
+  --color-brand-hover:  #818cf8;
+
+  /* ---- Typography ------------------------------------------------------ */
+  --font-display: "Newsreader", "Source Serif 4", Georgia, ui-serif, serif;
+  --font-sans:    "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* ---- Animations (kept) ---------------------------------------------- */
+  --animate-slide-in:       slide-in 0.25s ease-out;
+  --animate-fade-in:        fade-in 0.3s ease-out;
+  --animate-fade-in-up:     fade-in-up 0.3s ease-out;
   --animate-slide-in-right: slide-in-right 0.25s ease-out;
 }
 
+/* ============================================================================
+ * Keyframes
+ * ========================================================================== */
 @keyframes slide-in {
   from { opacity: 0; transform: translateX(16px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes fade-in {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
-
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
+/* ============================================================================
+ * Base typography — applied to <body>
+ * ========================================================================== */
 body {
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss03"; /* Inter stylistic sets for nicer 1/i/l */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display headings opt into the editorial serif via .display class */
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Tabular figures for stat numbers, dates etc. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tracked-out small caps — used for category labels, stat captions */
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-ink-muted);
 }

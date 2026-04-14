@@ -6,11 +6,11 @@ import { useConnections } from '../context/ConnectionContext'
 import ComposeEmail from './ComposeEmail'
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/emails', icon: Mail, label: 'Emails' },
-  { to: '/commitments', icon: ListChecks, label: 'Commitments' },
-  { to: '/ask', icon: Sparkles, label: 'Ask AI' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/dashboard',    label: 'Dashboard',   icon: LayoutDashboard },
+  { to: '/emails',       label: 'Inbox',       icon: Mail },
+  { to: '/commitments',  label: 'Commitments', icon: ListChecks },
+  { to: '/ask',          label: 'Ask',         icon: Sparkles },
+  { to: '/settings',     label: 'Settings',    icon: Settings },
 ]
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -26,11 +26,11 @@ function Layout({ children }: { children: React.ReactNode }) {
   const activeEmail = connections.find((c) => c._id === activeConnection)?.emailAddress
 
   return (
-    <div className="h-screen bg-zinc-950 flex overflow-hidden">
+    <div className="h-screen bg-cream text-ink flex overflow-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          className="fixed inset-0 bg-ink/30 z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -38,36 +38,39 @@ function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900/80 border-r border-zinc-800 backdrop-blur-sm
+          fixed inset-y-0 left-0 z-50 w-60 bg-cream-soft border-r border-rule
           flex flex-col transition-transform duration-200
           lg:translate-x-0 lg:static
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-              <Mail className="w-4 h-4 text-indigo-400" />
-            </div>
-            <span className="text-lg font-semibold text-zinc-100">MailPilot</span>
+        {/* Wordmark — editorial serif italic, no logo box */}
+        <div className="h-16 flex items-center justify-between px-6 border-b border-rule">
+          <div className="display italic text-xl text-ink leading-none">
+            Mailpilot<span className="text-accent">.</span>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden text-zinc-400 hover:text-zinc-200"
+            className="lg:hidden text-ink-muted hover:text-ink cursor-pointer"
+            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Account selector */}
+        {/* Account selector — only when multiple */}
         {connections.length > 1 && (
           <div className="px-3 pt-4 pb-2">
+            <p className="eyebrow px-2 mb-1.5">Account</p>
             <div className="relative">
               <select
                 value={activeConnection}
                 onChange={(e) => setActiveConnection(e.target.value)}
-                className="w-full appearance-none bg-zinc-800/60 border border-zinc-700/50 rounded-lg px-3 py-2 pr-8 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500 cursor-pointer truncate"
+                className="
+                  w-full appearance-none bg-paper border border-rule rounded-md
+                  px-3 py-2 pr-8 text-xs text-ink-soft
+                  focus:outline-none focus:border-ink/40 cursor-pointer truncate
+                "
               >
                 {connections.map((c) => (
                   <option key={c._id} value={c._id}>
@@ -75,39 +78,53 @@ function Layout({ children }: { children: React.ReactNode }) {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-muted pointer-events-none" />
             </div>
           </div>
         )}
 
         {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
+                    ? 'text-ink bg-cream-deep'
+                    : 'text-ink-soft hover:text-ink hover:bg-cream-deep/60'
                 }`
               }
             >
-              <Icon className="w-4.5 h-4.5" />
-              {label}
+              {({ isActive }) => (
+                <>
+                  {/* Active accent dot — premium signature */}
+                  <span
+                    className={`w-1 h-1 rounded-full transition-colors ${
+                      isActive ? 'bg-accent' : 'bg-transparent'
+                    }`}
+                  />
+                  <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+                  <span className="font-medium tracking-tight">{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
         {/* Logout */}
-        <div className="p-3 border-t border-zinc-800">
+        <div className="p-3 border-t border-rule">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-colors w-full cursor-pointer"
+            className="
+              flex items-center gap-3 px-3 py-2 rounded-md text-sm
+              text-ink-muted hover:text-danger hover:bg-danger-soft/60
+              transition-colors w-full cursor-pointer
+            "
           >
-            <LogOut className="w-4.5 h-4.5" />
+            <LogOut className="w-4 h-4" strokeWidth={1.75} />
             Sign out
           </button>
         </div>
@@ -116,27 +133,25 @@ function Layout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Mobile header */}
-        <header className="lg:hidden h-16 flex items-center justify-between px-4 border-b border-zinc-800 bg-zinc-900/50">
+        <header className="lg:hidden h-16 flex items-center justify-between px-4 border-b border-rule bg-cream-soft">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
-              className="text-zinc-400 hover:text-zinc-200"
+              className="text-ink-muted hover:text-ink cursor-pointer"
+              aria-label="Open menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-                <Mail className="w-3.5 h-3.5 text-indigo-400" />
-              </div>
-              <span className="font-semibold text-zinc-100">MailPilot</span>
+            <div className="display italic text-lg text-ink">
+              Mailpilot<span className="text-accent">.</span>
             </div>
           </div>
           {activeEmail && (
-            <span className="text-xs text-zinc-500 truncate max-w-[140px]">{activeEmail}</span>
+            <span className="text-xs text-ink-muted truncate max-w-[140px]">{activeEmail}</span>
           )}
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-cream">
           {children}
         </main>
       </div>

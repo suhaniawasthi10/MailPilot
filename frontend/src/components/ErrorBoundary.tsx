@@ -32,21 +32,27 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-8">
-          <div className="max-w-md text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-7 h-7 text-red-400" />
+        <div className="min-h-screen bg-cream text-ink flex items-center justify-center p-8">
+          <div className="max-w-md text-center space-y-5">
+            <div className="w-12 h-12 rounded-md bg-danger-soft border border-danger/20 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-5 h-5 text-danger" />
             </div>
-            <h2 className="text-xl font-semibold text-zinc-100">Something went wrong</h2>
-            <p className="text-sm text-zinc-500">
-              An unexpected error occurred. Try reloading the page.
-            </p>
+            <div className="space-y-2">
+              <h2 className="display text-2xl text-ink">Something went wrong</h2>
+              <p className="text-sm text-ink-soft leading-relaxed">
+                An unexpected error occurred. Try reloading the page.
+              </p>
+            </div>
             <button
               onClick={this.handleReload}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-sm font-medium text-zinc-200 hover:bg-zinc-700 transition-colors cursor-pointer"
+              className="
+                inline-flex items-center gap-2 px-4 py-2.5 rounded-md
+                bg-ink text-cream hover:bg-ink-soft border border-ink
+                text-sm font-medium transition-colors cursor-pointer
+              "
             >
               <RefreshCw className="w-4 h-4" />
-              Reload Page
+              Reload page
             </button>
           </div>
         </div>
