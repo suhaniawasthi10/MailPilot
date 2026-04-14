@@ -9,7 +9,6 @@ import {
   Circle,
   Reply,
   Calendar,
-  Filter,
   Search,
   X,
   ChevronLeft,
@@ -21,6 +20,7 @@ import { useConnections } from '../context/ConnectionContext'
 import { CommitmentsPageSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
+import Button from '../components/ui/Button'
 import type { Commitment, Email } from '../types'
 
 type FilterPriority = 'all' | 'high' | 'medium' | 'low'
@@ -45,6 +45,7 @@ function Commitments() {
   useEffect(() => {
     if (!activeConnection) return
     fetchCommitments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConnection, page])
 
   async function fetchCommitments() {
@@ -54,7 +55,7 @@ function Commitments() {
       setCommitments(data.commitments)
       setTotalPages(data.pagination.pages)
       setTotalCommitments(data.pagination.total)
-    } catch (err) {
+    } catch {
       toast('Failed to load commitments', 'error')
     } finally {
       setLoadingData(false)
@@ -69,7 +70,7 @@ function Commitments() {
       toast(data.message || 'Commitments extracted', 'success')
       setPage(1)
       await fetchCommitments()
-    } catch (err) {
+    } catch {
       toast('Failed to extract commitments', 'error')
     } finally {
       setExtracting(false)
@@ -86,7 +87,7 @@ function Commitments() {
       } else {
         toast('No overdue commitments found', 'info')
       }
-    } catch (err) {
+    } catch {
       toast('Failed to check overdue', 'error')
     } finally {
       setCheckingOverdue(false)
@@ -101,7 +102,7 @@ function Commitments() {
         prev.map((c) => (c._id === id ? { ...c, status: newStatus as 'pending' | 'completed' } : c)),
       )
       toast(newStatus === 'completed' ? 'Marked as complete' : 'Marked as pending', 'success')
-    } catch (err) {
+    } catch {
       toast('Failed to update commitment', 'error')
     }
   }
@@ -113,7 +114,7 @@ function Commitments() {
       setCalendarSuccess(id)
       toast('Added to calendar', 'success')
       setTimeout(() => setCalendarSuccess(null), 3000)
-    } catch (err) {
+    } catch {
       toast('Failed to add to calendar', 'error')
     } finally {
       setAddingToCalendar(null)
@@ -141,76 +142,98 @@ function Commitments() {
   if (connections.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4">
-        <ListChecks className="w-10 h-10 text-zinc-600" />
-        <p className="text-zinc-500">No email accounts connected yet.</p>
+        <ListChecks className="w-9 h-9 text-ink-muted" strokeWidth={1.5} />
+        <p className="text-sm text-ink-soft">No email accounts connected yet.</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Commitments</h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            {totalCommitments} commitment{totalCommitments !== 1 ? 's' : ''}
+          <p className="eyebrow">What's owed</p>
+          <h1 className="display text-4xl text-ink mt-1 leading-tight">Commitments.</h1>
+          <p className="text-sm text-ink-soft mt-2 tabular">
+            <span className="text-ink font-medium">{totalCommitments}</span>{' '}
+            {totalCommitments === 1 ? 'commitment' : 'commitments'} extracted from your inbox
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
             onClick={handleExtract}
             disabled={extracting}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 cursor-pointer"
+            leftIcon={extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
           >
-            {extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-            {extracting ? 'Extracting...' : 'Extract'}
-          </button>
-          <button
+            {extracting ? 'Extracting' : 'Extract'}
+          </Button>
+          <Button
+            variant="secondary"
             onClick={handleCheckOverdue}
             disabled={checkingOverdue}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
+            leftIcon={
+              checkingOverdue ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <AlertTriangle className="w-4 h-4" />
+              )
+            }
           >
-            {checkingOverdue ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-            Check Overdue
-          </button>
+            Check overdue
+          </Button>
         </div>
       </div>
 
+      {/* Filters — minimal, no card wrapper */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" strokeWidth={1.75} />
           <input
             type="text"
-            placeholder="Search commitments..."
+            placeholder="Search commitments…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+            className="
+              w-full h-10 pl-9 pr-9
+              bg-paper border border-rule rounded-md
+              text-sm text-ink placeholder:text-ink-faint
+              focus:outline-none focus:border-ink/40
+            "
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer"
+              aria-label="Clear search"
+            >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
         <div className="flex gap-2">
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-3">
-            <Filter className="w-3.5 h-3.5 text-zinc-500" />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-              className="bg-transparent text-sm text-zinc-300 py-2.5 focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+            className="
+              h-10 px-3 bg-paper border border-rule rounded-md
+              text-sm text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
+            "
+          >
+            <option value="all">All status</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+          </select>
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value as FilterPriority)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-300 focus:outline-none cursor-pointer"
+            className="
+              h-10 px-3 bg-paper border border-rule rounded-md
+              text-sm text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
+            "
           >
-            <option value="all">All Priority</option>
+            <option value="all">All priority</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
@@ -218,17 +241,18 @@ function Commitments() {
         </div>
       </div>
 
+      {/* List — flat rows with hairline dividers, no cards */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
-          <ListChecks className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-          <p className="text-sm text-zinc-500">
+        <div className="border border-rule rounded-md bg-cream-soft p-12 text-center">
+          <ListChecks className="w-7 h-7 text-ink-muted mx-auto mb-3" strokeWidth={1.5} />
+          <p className="text-sm text-ink-soft">
             {commitments.length === 0
-              ? 'No commitments yet. Sync emails then extract commitments.'
+              ? 'No commitments yet. Sync emails, then extract.'
               : 'No commitments match your filters.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="border-t border-rule">
           {filtered.map((c, i) => {
             const email = typeof c.emailId === 'object' ? (c.emailId as Email) : null
             const overdue = isOverdue(c)
@@ -236,65 +260,85 @@ function Commitments() {
             return (
               <div
                 key={c._id}
-                className={`rounded-xl border bg-zinc-900/40 p-5 transition-colors animate-fade-in-up ${
-                  overdue ? 'border-red-500/30 bg-red-500/5' : 'border-zinc-800'
-                }`}
-                style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'both' }}
+                className={`
+                  group flex items-start gap-4 border-b border-rule px-2 py-5
+                  transition-colors animate-fade-in-up
+                  ${overdue ? 'bg-danger-soft/40' : 'hover:bg-cream-soft'}
+                `}
+                style={{ animationDelay: `${i * 25}ms`, animationFillMode: 'both' }}
               >
-                <div className="flex items-start gap-4">
-                  <button
-                    onClick={() => handleToggleStatus(c._id, c.status)}
-                    className="mt-0.5 shrink-0 cursor-pointer"
+                <button
+                  onClick={() => handleToggleStatus(c._id, c.status)}
+                  className="mt-0.5 shrink-0 cursor-pointer"
+                  aria-label={c.status === 'completed' ? 'Mark pending' : 'Mark complete'}
+                >
+                  {c.status === 'completed' ? (
+                    <CheckCircle2 className="w-5 h-5 text-success" strokeWidth={1.75} />
+                  ) : (
+                    <Circle className="w-5 h-5 text-ink-muted hover:text-success transition-colors" strokeWidth={1.5} />
+                  )}
+                </button>
+
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm leading-snug ${
+                      c.status === 'completed'
+                        ? 'text-ink-muted line-through'
+                        : 'text-ink'
+                    }`}
                   >
-                    {c.status === 'completed' ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    {c.summary}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5 text-xs">
+                    <PriorityBadge priority={c.priority} />
+                    {c.deadline && (
+                      <span
+                        className={`flex items-center gap-1 tabular ${
+                          overdue ? 'text-danger font-medium' : 'text-ink-muted'
+                        }`}
+                      >
+                        {overdue ? (
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                        ) : (
+                          <Clock className="w-3 h-3" strokeWidth={1.75} />
+                        )}
+                        {formatDate(c.deadline)}
+                      </span>
+                    )}
+                    {c.replyRequired && (
+                      <span className="flex items-center gap-1 text-accent-ink">
+                        <Reply className="w-3 h-3" strokeWidth={1.75} /> Reply needed
+                      </span>
+                    )}
+                    {email && (
+                      <span className="text-ink-muted truncate max-w-[280px] italic">
+                        from “{email.subject}”
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {c.deadline && c.status === 'pending' && (
+                  <button
+                    onClick={() => handleAddToCalendar(c._id)}
+                    disabled={addingToCalendar === c._id}
+                    className="
+                      shrink-0 p-2 rounded-md text-ink-muted
+                      hover:text-ink hover:bg-cream-deep
+                      transition-colors cursor-pointer disabled:opacity-50
+                      opacity-0 group-hover:opacity-100
+                    "
+                    title="Add to calendar"
+                  >
+                    {addingToCalendar === c._id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : calendarSuccess === c._id ? (
+                      <CheckCircle2 className="w-4 h-4 text-success" />
                     ) : (
-                      <Circle className="w-5 h-5 text-zinc-600 hover:text-green-500 transition-colors" />
+                      <Calendar className="w-4 h-4" strokeWidth={1.75} />
                     )}
                   </button>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${c.status === 'completed' ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
-                      {c.summary}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3 mt-2">
-                      <PriorityBadge priority={c.priority} />
-                      {c.deadline && (
-                        <span className={`flex items-center gap-1 text-xs ${overdue ? 'text-red-400' : 'text-zinc-500'}`}>
-                          {overdue ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          {formatDate(c.deadline)}
-                        </span>
-                      )}
-                      {c.replyRequired && (
-                        <span className="flex items-center gap-1 text-xs text-purple-400">
-                          <Reply className="w-3 h-3" /> Reply needed
-                        </span>
-                      )}
-                      {email && (
-                        <span className="text-xs text-zinc-600 truncate max-w-[200px]">
-                          from: {email.subject}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {c.deadline && c.status === 'pending' && (
-                    <button
-                      onClick={() => handleAddToCalendar(c._id)}
-                      disabled={addingToCalendar === c._id}
-                      className="shrink-0 p-2 rounded-lg text-zinc-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                      title="Add to calendar"
-                    >
-                      {addingToCalendar === c._id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : calendarSuccess === c._id ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Calendar className="w-4 h-4" />
-                      )}
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
             )
           })}
@@ -304,24 +348,28 @@ function Commitments() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-muted tabular">
             Page {page} of {totalPages}
           </p>
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Prev
-            </button>
-            <button
+              Prev
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
             >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+              Next
+            </Button>
           </div>
         </div>
       )}
