@@ -204,15 +204,20 @@ function Ask() {
 
   return (
     <div className="flex flex-col h-full animate-fade-in bg-cream">
-      {/* ===== Header — editorial =================================== */}
-      <div className="border-b border-rule px-6 py-5 lg:px-10">
-        <div className="flex items-end justify-between max-w-4xl mx-auto gap-6">
-          <div>
+      {/* ===== Header — editorial: eyebrow → headline → standfirst ==== */}
+      <div className="border-b border-rule px-6 py-6 lg:px-10">
+        <div className="flex items-start justify-between max-w-4xl mx-auto gap-6">
+          <div className="max-w-xl">
             <p className="eyebrow">Conversational search</p>
             <h1 className="display text-3xl text-ink mt-1 leading-tight">Ask.</h1>
+            {/* Standfirst — italic serif, bridges headline to body */}
+            <p className="display italic text-[15px] text-ink-soft mt-3 leading-relaxed">
+              Pose any question to your inbox. Answers come grounded in real emails,
+              with cited sources.
+            </p>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0 pt-1">
             {messages.length > 0 && (
               <button
                 onClick={handleClearChat}
@@ -227,26 +232,34 @@ function Ask() {
                 Clear
               </button>
             )}
-            <span className="w-px h-5 bg-rule mx-2" />
-            {/* Mode selector — text-only links separated by dots */}
+            {messages.length > 0 && <span className="w-px h-5 bg-rule mx-2" />}
             <ModeSelector mode={mode} onChange={setMode} />
           </div>
         </div>
       </div>
 
-      {/* ===== Index status — minimal hairline progress ============== */}
-      {indexStatus && (
+      {/* ===== Index status — only shown when there's something to say.
+            Pending: hairline progress + "Index now" CTA.
+            Complete: tiny success line, no bar (avoids unfinished feel). === */}
+      {indexStatus && indexStatus.total > 0 && (
         <div className="px-6 lg:px-10 border-b border-rule">
-          <div className="max-w-4xl mx-auto py-3">
+          <div className="max-w-4xl mx-auto py-2.5">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-ink-muted tabular">
-                <span>
-                  <span className="text-ink font-medium">{indexStatus.embedded}</span>
-                  {' / '}
-                  {indexStatus.total} indexed
-                </span>
-                {indexStatus.pending > 0 && (
-                  <span className="text-warning">· {indexStatus.pending} pending</span>
+                {indexStatus.pending > 0 ? (
+                  <>
+                    <span>
+                      <span className="text-ink font-medium">{indexStatus.embedded}</span>
+                      {' / '}
+                      {indexStatus.total} indexed
+                    </span>
+                    <span className="text-warning">· {indexStatus.pending} pending</span>
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-success">
+                    <span className="w-1 h-1 rounded-full bg-success" />
+                    All {indexStatus.total} emails indexed
+                  </span>
                 )}
               </div>
               {indexStatus.pending > 0 && (
@@ -262,10 +275,10 @@ function Ask() {
                 </button>
               )}
             </div>
-            {indexStatus.total > 0 && (
+            {indexStatus.pending > 0 && (
               <div className="mt-2 h-px w-full bg-rule overflow-hidden relative">
                 <div
-                  className="absolute inset-y-0 left-0 bg-ink transition-all duration-500"
+                  className="absolute inset-y-0 left-0 bg-accent transition-all duration-500"
                   style={{ width: `${(indexStatus.embedded / indexStatus.total) * 100}%` }}
                 />
               </div>
@@ -274,9 +287,16 @@ function Ask() {
         </div>
       )}
 
-      {/* ===== Messages area ======================================== */}
-      <div className="flex-1 overflow-y-auto px-6 lg:px-10 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      {/* ===== Messages area ========================================
+           Empty state: vertically centered so the page doesn't feel
+           orphaned at the top with a void below. */}
+      <div
+        className={`
+          flex-1 overflow-y-auto px-6 lg:px-10 py-8
+          ${messages.length === 0 ? 'flex items-center justify-center' : ''}
+        `}
+      >
+        <div className="max-w-4xl mx-auto w-full space-y-8">
           {messages.length === 0 && <EmptyState onSubmit={(q) => setInput(q)} />}
 
           {messages.map((msg) =>
@@ -298,14 +318,18 @@ function Ask() {
 
       {/* ===== Input ================================================ */}
       <div className="border-t border-rule px-6 lg:px-10 py-4 bg-cream-soft">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex gap-2">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex gap-2 items-center">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your emails…"
+            placeholder={
+              messages.length === 0
+                ? 'Ask anything — try one of the examples above…'
+                : 'Ask another question…'
+            }
             className="
-              flex-1 h-11 px-4 bg-paper border border-rule rounded-md
+              flex-1 h-12 px-4 bg-paper border border-rule-strong rounded-md
               text-sm text-ink placeholder:text-ink-faint
               focus:outline-none focus:border-ink/40 transition-colors
             "
@@ -315,15 +339,20 @@ function Ask() {
             type="submit"
             disabled={loading || !input.trim()}
             className="
-              h-11 px-4 rounded-md bg-ink text-cream
+              h-12 px-4 rounded-md bg-ink text-cream font-semibold
               hover:bg-ink-soft border border-ink
               transition-colors cursor-pointer
               disabled:opacity-40 disabled:cursor-not-allowed
+              flex items-center gap-2
             "
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline text-sm">Ask</span>
           </button>
         </form>
+        <p className="max-w-4xl mx-auto text-[10px] text-ink-faint mt-2 tabular tracking-[0.08em] uppercase">
+          Press <span className="text-ink-muted">↵</span> to send · Powered by Groq
+        </p>
       </div>
 
       <ConfirmModal
@@ -355,13 +384,13 @@ function ModeSelector({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => v
             className={`
               px-2 py-1 transition-colors cursor-pointer
               ${mode === m
-                ? 'text-ink font-medium underline underline-offset-4 decoration-accent decoration-2'
+                ? 'text-ink font-semibold underline underline-offset-[6px] decoration-accent decoration-1'
                 : 'text-ink-muted hover:text-ink'}
             `}
           >
             {m}
           </button>
-          {i < modes.length - 1 && <span className="text-ink-faint">·</span>}
+          {i < modes.length - 1 && <span className="text-ink-faint mx-0.5">·</span>}
         </span>
       ))}
     </div>
@@ -369,26 +398,35 @@ function ModeSelector({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => v
 }
 
 function EmptyState({ onSubmit }: { onSubmit: (q: string) => void }) {
+  // Mix the rhythm — start words vary so the list doesn't read as a template
   const examples = [
     'What did we agree on with Acme Corp last month?',
-    'When is my flight to Mumbai?',
-    'Summarize all emails from Shalini',
+    'Find anything urgent from this week.',
+    'Summarize my recent receipts and payments.',
   ]
   return (
-    <div className="py-16 max-w-2xl">
-      <p className="display italic text-2xl text-ink leading-snug">
-        “Treat your inbox like a library — and ask it questions.”
+    <div className="max-w-2xl mx-auto text-center">
+      {/* Display quote — the page's signature element */}
+      <p className="display italic text-3xl text-ink leading-snug">
+        “Treat your inbox like a library —
+        <br />
+        and ask it questions.”
       </p>
-      <p className="eyebrow mt-6">Try asking</p>
-      <div className="mt-3 space-y-1.5">
+      <p className="text-sm text-ink-muted mt-4 max-w-md mx-auto">
+        Mailpilot reads through your email and answers in plain language,
+        always citing the messages it pulled from.
+      </p>
+
+      <p className="eyebrow mt-12">Try asking</p>
+      <div className="mt-3 max-w-lg mx-auto text-left">
         {examples.map((q) => (
           <button
             key={q}
             onClick={() => onSubmit(q)}
             className="
-              block text-sm text-ink-soft hover:text-ink italic
-              transition-colors text-left cursor-pointer
-              border-l-2 border-rule hover:border-accent pl-4 py-1
+              w-full block text-sm text-ink-soft hover:text-ink italic
+              transition-colors cursor-pointer
+              border-l-2 border-rule hover:border-accent pl-4 py-1.5
             "
           >
             {q}

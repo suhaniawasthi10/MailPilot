@@ -83,7 +83,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Nav links */}
+        {/* Nav links — active state uses a left vertical terracotta rule
+             (Linear/Things style). Strong, unmistakable, but quiet. */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -91,23 +92,26 @@ function Layout({ children }: { children: React.ReactNode }) {
               to={to}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
-                `relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                `relative flex items-center gap-3 pl-4 pr-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? 'text-ink bg-cream-deep'
-                    : 'text-ink-soft hover:text-ink hover:bg-cream-deep/60'
+                    ? 'text-ink bg-cream-deep font-semibold'
+                    : 'text-ink-soft hover:text-ink hover:bg-cream-deep/60 font-medium'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  {/* Active accent dot — premium signature */}
-                  <span
-                    className={`w-1 h-1 rounded-full transition-colors ${
-                      isActive ? 'bg-accent' : 'bg-transparent'
-                    }`}
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-accent"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${isActive ? 'text-ink' : 'text-ink-muted'}`}
+                    strokeWidth={isActive ? 2 : 1.75}
                   />
-                  <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-                  <span className="font-medium tracking-tight">{label}</span>
+                  <span className="tracking-tight">{label}</span>
                 </>
               )}
             </NavLink>

@@ -106,20 +106,28 @@ function ComposeEmail() {
 
   if (connections.length === 0) return null
 
-  // ===== FAB button — solid ink, no glow, sharp corners ====
+  // ===== FAB — paper surface with subtle lift, hover reveals accent.
+  // Sits ON the page, doesn't punch through it. Soft shadow gives weight
+  // without using black ink. =====
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="
-          fixed bottom-8 right-8 z-50
-          flex items-center gap-2 px-5 py-3 rounded-md
-          bg-ink text-cream text-sm font-medium tracking-tight
-          border border-ink hover:bg-ink-soft
-          transition-colors cursor-pointer
+          group fixed bottom-7 right-7 z-50
+          flex items-center gap-2 px-4 py-2.5 rounded-md
+          bg-paper text-ink text-sm font-medium tracking-tight
+          border border-rule-strong
+          shadow-[0_2px_12px_-4px_rgba(26,24,22,0.10)]
+          hover:border-accent hover:text-accent-ink
+          hover:shadow-[0_4px_18px_-4px_rgba(196,77,61,0.18)]
+          transition-all duration-200 cursor-pointer
         "
       >
-        <Plus className="w-4 h-4" strokeWidth={1.75} />
+        <Plus
+          className="w-4 h-4 text-ink-muted group-hover:text-accent transition-colors"
+          strokeWidth={1.75}
+        />
         Compose
       </button>
     )

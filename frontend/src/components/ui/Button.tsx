@@ -12,9 +12,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 // Solid, no gradients, no glassmorphism. Sharp 6px radius.
+// Primary uses ink fill + tabular weight for clear dominance over secondary.
 const variantClasses: Record<Variant, string> = {
-  primary:   'bg-ink text-cream hover:bg-ink-soft border border-ink',
-  secondary: 'bg-cream-soft text-ink hover:bg-cream-deep border border-rule',
+  primary:   'bg-ink text-cream hover:bg-ink-soft border border-ink font-semibold',
+  secondary: 'bg-paper text-ink hover:bg-cream-deep border border-rule-strong',
   ghost:     'bg-transparent text-ink-soft hover:text-ink hover:bg-cream-deep border border-transparent',
   danger:    'bg-danger text-cream hover:bg-accent-hover border border-danger',
   accent:    'bg-accent text-cream hover:bg-accent-hover border border-accent',
