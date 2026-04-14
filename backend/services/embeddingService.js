@@ -78,6 +78,10 @@ const getCollection = async () => {
         chromaCollection = await client.getOrCreateCollection({
             name: 'emails',
             metadata: { 'hnsw:space': 'cosine' },
+            // We provide our own embeddings via Xenova, so pass null to bypass
+            // Chroma's default embedding function (which would otherwise require
+            // installing @chroma-core/default-embed).
+            embeddingFunction: null,
         });
         console.log('Chroma collection "emails" ready');
     }
