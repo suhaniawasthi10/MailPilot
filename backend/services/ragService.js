@@ -19,9 +19,15 @@
  *   combines precision of structured filters with semantic understanding.
  */
 
-import { searchEmails, getEmbedding } from './embeddingService.js';
+import { searchEmails, getEmbedding, getEmbeddingsForEmails } from './embeddingService.js';
 import Email from '../models/Email.js';
 import EmailConnection from '../models/EmailConnection.js';
+
+// Minimum similarity score to surface a source to the user.
+// Below this, matches are noise and confuse more than they help.
+// We always keep the top 1-2 results regardless, so the user still sees
+// SOMETHING even when nothing strongly matches.
+const MIN_SOURCE_SCORE = 0.25;
 
 // Reuse your existing Groq caller — no point duplicating retry logic
 import { delay } from './groqService.js';
@@ -102,13 +108,15 @@ Content: ${ctx.text}
 ---`
     ).join('\n');
 
-    return `You are an AI email assistant. Answer the user's question based ONLY on the emails provided below.
+    return `You are an AI email assistant. Answer the user's question using the emails provided below as your source of truth.
 
 RULES:
-- Use ONLY information from the provided emails. Do NOT make up or assume anything.
-- If the emails don't contain enough info to answer, say "I couldn't find enough information in your emails to answer this."
+- Use information from the provided emails. Do NOT invent facts that aren't in them.
+- ANSWER WITH WHATEVER YOU CAN. Even partial information is useful — extract whatever the emails do say about the topic.
+- If an email is clearly relevant (e.g. matches the sender or topic asked about), describe what it says.
+- Only refuse to answer if NONE of the provided emails relate to the question at all.
 - Reference specific emails by number when citing information, e.g. "According to Email 2..."
-- Be concise and direct. No fluff.
+- Be concise and direct. No fluff. No restating the question.
 - If asked to summarize, cover the key points from ALL relevant emails.
 
 EMAILS:
@@ -117,6 +125,19 @@ ${contextBlock}
 QUESTION: ${question}
 
 ANSWER:`;
+};
+
+/**
+ * Filter sources by minimum score, but always keep at least the top 2.
+ *
+ * Why "at least 2"? If we filter strictly and end up with 0 sources, the
+ * UI looks broken even when the LLM gave a useful answer. Keeping the
+ * highest-ranked matches preserves the "I tried" signal.
+ */
+const filterSourcesByScore = (sources) => {
+    const sorted = [...sources].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const strong = sorted.filter((s) => (s.score || 0) >= MIN_SOURCE_SCORE);
+    return strong.length >= 2 ? strong : sorted.slice(0, 2);
 };
 
 // ============================================================================
@@ -186,9 +207,11 @@ const answerVector = async (question, userId, connectionId = null) => {
 
     return {
         answer,
-        sources: topContexts.map(({ emailId, sender, subject, receivedAt, score }) => ({
-            emailId, sender, subject, receivedAt, score: Math.round(score * 100),
-        })),
+        sources: filterSourcesByScore(
+            topContexts.map(({ emailId, sender, subject, receivedAt, score }) => ({
+                emailId, sender, subject, receivedAt, score: Math.round(score * 100),
+            })),
+        ),
         mode: 'vector',
     };
 };
@@ -457,30 +480,48 @@ const answerHybrid = async (question, userId, connectionId = null) => {
         return answerVector(question, userId, connectionId);
     }
 
-    // Step 3: Embed the question
+    // Step 3: Embed the question (single embed call — fast)
     const questionEmbedding = await getEmbedding(question);
 
-    // Step 4: Embed each candidate and compute similarity scores
-    // We embed "Subject: X | From: Y | Body snippet" for each candidate
+    // Step 4: PERF — fetch existing embeddings for candidates from Chroma
+    // instead of re-embedding each one (was O(n) embedding calls per query,
+    // ~50ms each). Now it's a single bulk Chroma fetch + cheap math.
+    const candidateIds = candidates.map((c) => c._id.toString());
+    const embeddingsMap = await getEmbeddingsForEmails(candidateIds);
+
+    // Step 5: Score each candidate by cosine similarity to the question.
+    // For emails with multiple chunks, take the BEST-matching chunk's score.
+    // For emails not yet embedded (rare — sync race), embed on the fly.
     const scored = [];
     for (const email of candidates) {
-        const text = [
-            email.subject ? `Subject: ${email.subject}` : '',
-            email.sender ? `From: ${email.sender}` : '',
-            (email.body || email.snippet || '').substring(0, 500),
-        ].filter(Boolean).join(' ');
+        const id = email._id.toString();
+        const chunks = embeddingsMap.get(id);
 
-        try {
-            const emailEmbedding = await getEmbedding(text);
-            const score = cosineSimilarity(questionEmbedding, emailEmbedding);
-            scored.push({ email, score });
-        } catch {
-            // If embedding fails for one email, skip it
-            scored.push({ email, score: 0 });
+        let score = 0;
+        if (chunks && chunks.length > 0) {
+            // Best chunk score for this email
+            score = Math.max(
+                ...chunks.map((c) => cosineSimilarity(questionEmbedding, c.embedding)),
+            );
+        } else {
+            // Fallback: not in Chroma yet, embed on the fly so it still ranks
+            try {
+                const text = [
+                    email.subject ? `Subject: ${email.subject}` : '',
+                    email.sender ? `From: ${email.sender}` : '',
+                    (email.body || email.snippet || '').substring(0, 500),
+                ].filter(Boolean).join(' ');
+                const emailEmbedding = await getEmbedding(text);
+                score = cosineSimilarity(questionEmbedding, emailEmbedding);
+            } catch {
+                score = 0;
+            }
         }
+
+        scored.push({ email, score });
     }
 
-    // Step 5: Sort by similarity (highest first) and take top 5
+    // Step 6: Sort by similarity (highest first) and take top 5
     scored.sort((a, b) => b.score - a.score);
     const topEmails = scored.slice(0, 5);
 
@@ -499,9 +540,11 @@ const answerHybrid = async (question, userId, connectionId = null) => {
 
     return {
         answer,
-        sources: emailContexts.map(({ emailId, sender, subject, receivedAt, score }) => ({
-            emailId, sender, subject, receivedAt, score: Math.round(score * 100),
-        })),
+        sources: filterSourcesByScore(
+            emailContexts.map(({ emailId, sender, subject, receivedAt, score }) => ({
+                emailId, sender, subject, receivedAt, score: Math.round(score * 100),
+            })),
+        ),
         mode: 'hybrid',
         plan,
     };

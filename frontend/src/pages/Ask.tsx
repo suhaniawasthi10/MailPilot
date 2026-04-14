@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Sparkles, Send, Loader2, ChevronDown, ChevronRight, Mail, Database, AlertCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Sparkles, Send, Loader2, ChevronDown, ChevronRight, Mail, Database, AlertCircle, Trash2 } from 'lucide-react'
 import api from '../lib/api'
 import { useConnections } from '../context/ConnectionContext'
 import { formatDate } from '../lib/formatDate'
+
+// Persist chat history per connection in localStorage so it survives page reloads
+const CHAT_STORAGE_KEY = (connectionId: string) => `mailpilot_chat_${connectionId}`
 
 // ============================================================================
 // Types
@@ -54,6 +58,7 @@ type Mode = 'hybrid' | 'vector' | 'vectorless'
 
 function Ask() {
   const { activeConnection } = useConnections()
+  const navigate = useNavigate()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -67,13 +72,68 @@ function Ask() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Fetch index status on mount + when connection changes
+  // Load persisted chat history when connection changes
   useEffect(() => {
     if (!activeConnection) return
-    api.get(`/api/rag/status?connectionId=${activeConnection}`)
-      .then(({ data }) => setIndexStatus(data))
-      .catch(() => {}) // Silently fail — status is informational
+    try {
+      const stored = localStorage.getItem(CHAT_STORAGE_KEY(activeConnection))
+      setMessages(stored ? JSON.parse(stored) : [])
+    } catch {
+      setMessages([])
+    }
   }, [activeConnection])
+
+  // Persist chat history whenever messages change
+  useEffect(() => {
+    if (!activeConnection) return
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY(activeConnection), JSON.stringify(messages))
+    } catch {
+      // localStorage full or unavailable — silently skip
+    }
+  }, [messages, activeConnection])
+
+  // Fetch index status — initial + auto-poll every 4s while indexing
+  // is in progress so the progress bar updates live without a refresh.
+  useEffect(() => {
+    if (!activeConnection) return
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    const fetchStatus = async () => {
+      try {
+        const { data } = await api.get<IndexStatus>(
+          `/api/rag/status?connectionId=${activeConnection}`,
+        )
+        if (cancelled) return
+        setIndexStatus(data)
+        // Keep polling while embeddings are still being processed
+        if (data.pending > 0) {
+          timeoutId = setTimeout(fetchStatus, 4000)
+        }
+      } catch {
+        // Silently fail — status is informational
+      }
+    }
+
+    fetchStatus()
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [activeConnection, indexing])
+
+  const handleClearChat = () => {
+    if (!activeConnection || messages.length === 0) return
+    if (!confirm('Clear this conversation? This cannot be undone.')) return
+    setMessages([])
+    localStorage.removeItem(CHAT_STORAGE_KEY(activeConnection))
+  }
+
+  const handleOpenSource = (emailId: string) => {
+    // Navigate to the Emails page with this email pre-selected
+    navigate(`/emails?emailId=${emailId}`)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -150,8 +210,20 @@ function Ask() {
             </p>
           </div>
 
-          {/* Mode selector */}
           <div className="flex items-center gap-2">
+            {/* Clear chat button — only shown when there are messages */}
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                title="Clear conversation"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-500 hover:text-red-400 border border-transparent hover:border-red-500/30 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear
+              </button>
+            )}
+
+            {/* Mode selector */}
             {(['hybrid', 'vector', 'vectorless'] as Mode[]).map((m) => (
               <button
                 key={m}
@@ -218,7 +290,7 @@ function Ask() {
           {messages.map((msg) => (
             msg.type === 'question'
               ? <QuestionBubble key={msg.id} text={msg.text} />
-              : <AnswerCard key={msg.id} message={msg} />
+              : <AnswerCard key={msg.id} message={msg} onOpenSource={handleOpenSource} />
           ))}
 
           {loading && (
@@ -302,7 +374,7 @@ function QuestionBubble({ text }: { text: string }) {
   )
 }
 
-function AnswerCard({ message }: { message: Message }) {
+function AnswerCard({ message, onOpenSource }: { message: Message; onOpenSource: (emailId: string) => void }) {
   const [sourcesOpen, setSourcesOpen] = useState(false)
 
   if (message.error) {
@@ -370,13 +442,14 @@ function AnswerCard({ message }: { message: Message }) {
             {sourcesOpen && (
               <div className="mt-2 space-y-2">
                 {message.sources.map((source, i) => (
-                  <div
+                  <button
                     key={source.emailId + i}
-                    className="flex items-start gap-3 bg-zinc-900/40 border border-zinc-800/50 rounded-lg px-4 py-3"
+                    onClick={() => onOpenSource(source.emailId)}
+                    className="w-full text-left flex items-start gap-3 bg-zinc-900/40 hover:bg-zinc-900/80 border border-zinc-800/50 hover:border-indigo-500/40 rounded-lg px-4 py-3 transition-colors cursor-pointer group"
                   >
-                    <Mail className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-sm text-zinc-300 truncate">{source.subject || '(no subject)'}</p>
+                    <Mail className="w-4 h-4 text-zinc-600 group-hover:text-indigo-400 shrink-0 mt-0.5 transition-colors" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-zinc-300 group-hover:text-zinc-100 truncate transition-colors">{source.subject || '(no subject)'}</p>
                       <p className="text-xs text-zinc-500 mt-0.5">
                         {source.sender} · {formatDate(source.receivedAt)}
                         {source.score != null && (
@@ -384,7 +457,7 @@ function AnswerCard({ message }: { message: Message }) {
                         )}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

@@ -362,6 +362,46 @@ const searchEmails = async (query, userId, connectionId = null, topK = 8) => {
     }));
 };
 
+/**
+ * Fetch existing embeddings for a list of emails from Chroma.
+ *
+ * Used by hybrid mode to AVOID re-embedding candidates at query time —
+ * the embeddings are already stored, just look them up.
+ *
+ * Returns: Map<emailId, { embedding: number[], chunkIndex: number }[]>
+ * Each email may have multiple chunks; we return all of them so the caller
+ * can pick the most relevant chunk per email.
+ *
+ * @param {string[]} emailIds - Array of email ID strings
+ * @returns {Promise<Map>} Map keyed by emailId, value is array of chunk embeddings
+ */
+const getEmbeddingsForEmails = async (emailIds) => {
+    if (!emailIds || emailIds.length === 0) return new Map();
+
+    const collection = await getCollection();
+    const stringIds = emailIds.map((id) => id.toString());
+
+    // Fetch all chunks belonging to any of these emails, including their vectors
+    const results = await collection.get({
+        where: { emailId: { $in: stringIds } },
+        include: ['embeddings', 'metadatas'],
+    });
+
+    const map = new Map();
+    if (!results || !results.ids) return map;
+
+    for (let i = 0; i < results.ids.length; i++) {
+        const meta = results.metadatas[i];
+        const embedding = results.embeddings[i];
+        const emailId = meta.emailId;
+
+        if (!map.has(emailId)) map.set(emailId, []);
+        map.get(emailId).push({ embedding, chunkIndex: meta.chunkIndex || 0 });
+    }
+
+    return map;
+};
+
 // ============================================================================
 // SECTION 6: Utilities (delete, status)
 // ============================================================================
@@ -410,6 +450,7 @@ export {
     indexEmail,
     indexEmails,
     searchEmails,
+    getEmbeddingsForEmails,
     deleteEmailEmbeddings,
     getIndexStatus,
     getEmbedding,

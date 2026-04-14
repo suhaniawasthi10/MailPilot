@@ -1,5 +1,5 @@
 import express from 'express';
-import { syncEmails, getEmails, generateDraft, sendReply, composeEmail, generateCompose, getThread, forwardEmail, sendThreadReply } from '../controllers/emailController.js';
+import { syncEmails, getEmails, getEmailById, generateDraft, sendReply, composeEmail, generateCompose, getThread, forwardEmail, sendThreadReply } from '../controllers/emailController.js';
 import auth from '../middleware/auth.js';
 import { validateConnectionId, validateParamId } from '../middleware/validate.js';
 import { aiLimiter } from '../middleware/rateLimit.js';
@@ -11,6 +11,9 @@ router.get('/', auth, validateConnectionId('query'), getEmails);
 
 // Get full thread for an email
 router.get('/thread/:emailId', auth, validateParamId, getThread);
+
+// Get a single email by ID (for deep-linking from Ask AI sources)
+router.get('/:emailId', auth, validateParamId, getEmailById);
 
 // Sync latest emails from Gmail
 router.post('/sync', auth, validateConnectionId('body'), syncEmails);

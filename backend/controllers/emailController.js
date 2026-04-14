@@ -1,4 +1,5 @@
 import Email from '../models/Email.js';
+import EmailConnection from '../models/EmailConnection.js';
 import User from '../models/User.js';
 import { getVerifiedConnection, getGmailClient } from '../utils/connectionHelper.js';
 import { generateReply as generateReplyFn, generateComposeText, categorizeEmails } from '../services/groqService.js';
@@ -680,4 +681,25 @@ const sendThreadReply = async (req, res) => {
     }
 };
 
-export { syncEmails, getEmails, generateDraft, sendReply, composeEmail, generateCompose, getThread, forwardEmail, sendThreadReply };
+// @desc    Get a single email by ID (used by Ask AI source links to deep-link
+//          into an email that may not be on the current page of the list)
+// @route   GET /api/emails/:emailId
+const getEmailById = async (req, res) => {
+    try {
+        const email = await Email.findById(req.params.emailId);
+        if (!email) return res.status(404).json({ message: 'Email not found' });
+
+        // Authorization: ensure this email belongs to one of the user's connections
+        const connection = await EmailConnection.findById(email.connectionId);
+        if (!connection || connection.userId.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        res.json(email);
+    } catch (error) {
+        console.error('getEmailById error:', error.message);
+        res.status(500).json({ message: 'Failed to fetch email' });
+    }
+};
+
+export { syncEmails, getEmails, getEmailById, generateDraft, sendReply, composeEmail, generateCompose, getThread, forwardEmail, sendThreadReply };

@@ -27,6 +27,7 @@ import {
   Forward,
   ChevronDown,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useConnections } from '../context/ConnectionContext'
@@ -131,6 +132,7 @@ function Emails() {
   const { toast } = useToast()
   const { connections, activeConnection, loading } = useConnections()
   const socket = useSocket()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [emails, setEmails] = useState<Email[]>([])
   const [syncing, setSyncing] = useState(false)
   const [syncLimit, setSyncLimit] = useState('25')
@@ -163,6 +165,33 @@ function Emails() {
     setDraftReply('')
     fetchEmails()
   }, [activeConnection, page])
+
+  // Auto-open an email when navigated here with ?emailId=... (from Ask AI sources).
+  // We fetch the email directly because it might not be on the current page.
+  useEffect(() => {
+    const targetId = searchParams.get('emailId')
+    if (!targetId || !activeConnection) return
+    ;(async () => {
+      try {
+        // Try the loaded list first (avoids an extra request)
+        const found = emails.find((e) => e._id === targetId)
+        if (found) {
+          handleSelectEmail(found)
+        } else {
+          // Otherwise fetch from the server
+          const { data } = await api.get(`/api/emails/${targetId}`)
+          if (data) handleSelectEmail(data)
+        }
+      } catch {
+        toast('Could not open that email', 'error')
+      } finally {
+        // Clear the param so refresh doesn't re-trigger
+        searchParams.delete('emailId')
+        setSearchParams(searchParams, { replace: true })
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, activeConnection, emails.length])
 
   // Reset to page 1 when category or search changes
   const handleCategoryChange = (cat: EmailCategory | 'all' | 'priority') => {
