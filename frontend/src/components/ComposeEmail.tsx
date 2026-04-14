@@ -3,6 +3,8 @@ import { Plus, X, Send, Loader2, Minus, Maximize2, Minimize2, Sparkles } from 'l
 import api from '../lib/api'
 import { useToast } from './Toast'
 import { useConnections } from '../context/ConnectionContext'
+import Button from './ui/Button'
+import ConfirmModal from './ConfirmModal'
 
 function ComposeEmail() {
   const { toast } = useToast()
@@ -18,6 +20,7 @@ function ComposeEmail() {
   const [showAiPrompt, setShowAiPrompt] = useState(false)
   const [generatingAi, setGeneratingAi] = useState(false)
   const [signatureHtml, setSignatureHtml] = useState('')
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   // Fetch signature when compose opens
   useEffect(() => {
@@ -26,7 +29,7 @@ function ComposeEmail() {
       const sig = data.signature || ''
       setSignatureHtml(sig)
       if (bodyRef.current && sig) {
-        bodyRef.current.innerHTML = `<br><br><div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">${sig}</div>`
+        bodyRef.current.innerHTML = `<br><br><div style="border-top:1px solid #e8e3d8;padding-top:8px;margin-top:8px;color:#5c5853">${sig}</div>`
       }
     }).catch(() => {})
   }, [open])
@@ -48,7 +51,7 @@ function ComposeEmail() {
         body: getBodyHtml(),
         connectionId: activeConnection,
       })
-      toast('Email sent!', 'success')
+      toast('Email sent', 'success')
       handleClose()
     } catch {
       toast('Failed to send email', 'error')
@@ -66,10 +69,9 @@ function ComposeEmail() {
         subject: subject.trim(),
         to: to.trim(),
       })
-      // Set AI text + signature into contentEditable
       if (bodyRef.current) {
         const sigBlock = signatureHtml
-          ? `<br><br><div style="border-top:1px solid #444;padding-top:8px;margin-top:8px">${signatureHtml}</div>`
+          ? `<br><br><div style="border-top:1px solid #e8e3d8;padding-top:8px;margin-top:8px;color:#5c5853">${signatureHtml}</div>`
           : ''
         bodyRef.current.innerHTML = data.text.replace(/\n/g, '<br>') + sigBlock
       }
@@ -96,47 +98,56 @@ function ComposeEmail() {
 
   const handleDiscard = () => {
     if (to || subject || getBodyContent()) {
-      if (!confirm('Discard this draft?')) return
+      setShowDiscardConfirm(true)
+      return
     }
     handleClose()
   }
 
   if (connections.length === 0) return null
 
-  // FAB button
+  // ===== FAB button — solid ink, no glow, sharp corners ====
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="
+          fixed bottom-8 right-8 z-50
+          flex items-center gap-2 px-5 py-3 rounded-md
+          bg-ink text-cream text-sm font-medium tracking-tight
+          border border-ink hover:bg-ink-soft
+          transition-colors cursor-pointer
+        "
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4 h-4" strokeWidth={1.75} />
         Compose
       </button>
     )
   }
 
-  // Minimized bar
+  // ===== Minimized bar =====
   if (minimized) {
     return (
-      <div className="fixed bottom-0 right-6 z-50 w-72 rounded-t-xl bg-zinc-900 border border-zinc-700 border-b-0 shadow-2xl">
+      <div className="fixed bottom-0 right-8 z-50 w-72 rounded-t-md bg-paper border border-rule border-b-0 shadow-[0_-4px_24px_-8px_rgba(26,24,22,0.12)]">
         <div
           className="flex items-center justify-between px-4 py-3 cursor-pointer"
           onClick={() => setMinimized(false)}
         >
-          <span className="text-sm font-semibold text-zinc-100 truncate">
-            {subject || 'New Message'}
+          <span className="text-sm font-medium text-ink truncate">
+            {subject || 'New message'}
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={(e) => { e.stopPropagation(); setMinimized(false) }}
-              className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1 rounded text-ink-muted hover:text-ink hover:bg-cream-deep transition-colors"
+              aria-label="Restore"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleDiscard() }}
-              className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1 rounded text-ink-muted hover:text-ink hover:bg-cream-deep transition-colors"
+              aria-label="Close"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -147,38 +158,38 @@ function ComposeEmail() {
   }
 
   const containerClass = maximized
-    ? 'fixed inset-4 z-50 flex flex-col rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl'
-    : 'fixed bottom-0 right-6 z-50 w-[520px] max-h-[600px] flex flex-col rounded-t-xl bg-zinc-900 border border-zinc-700 border-b-0 shadow-2xl'
+    ? 'fixed inset-6 z-50 flex flex-col rounded-md bg-paper border border-rule shadow-[0_8px_48px_-12px_rgba(26,24,22,0.18)]'
+    : 'fixed bottom-0 right-8 z-50 w-[540px] max-h-[600px] flex flex-col rounded-t-md bg-paper border border-rule border-b-0 shadow-[0_-4px_24px_-8px_rgba(26,24,22,0.12)]'
 
   return (
     <>
       {/* Backdrop for maximized */}
       {maximized && (
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setMaximized(false)} />
+        <div className="fixed inset-0 z-40 bg-ink/30" onClick={() => setMaximized(false)} />
       )}
 
       <div className={containerClass}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
-          <h3 className="text-sm font-semibold text-zinc-100">New Message</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-rule shrink-0 bg-cream-soft rounded-t-md">
+          <h3 className="display italic text-base text-ink">New message</h3>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setMinimized(true)}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-cream-deep transition-colors"
               title="Minimize"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setMaximized(!maximized)}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-cream-deep transition-colors"
               title={maximized ? 'Restore' : 'Maximize'}
             >
               {maximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={handleDiscard}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-cream-deep transition-colors"
               title="Close"
             >
               <X className="w-3.5 h-3.5" />
@@ -187,26 +198,26 @@ function ComposeEmail() {
         </div>
 
         {/* To */}
-        <div className="flex items-center border-b border-zinc-800/60 px-4">
-          <span className="text-xs text-zinc-500 mr-2 shrink-0">To</span>
+        <div className="flex items-center border-b border-rule px-4">
+          <span className="eyebrow mr-3 shrink-0">To</span>
           <input
             type="email"
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder="recipient@example.com"
-            className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 py-2.5 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint py-2.5 focus:outline-none"
           />
         </div>
 
         {/* Subject */}
-        <div className="flex items-center border-b border-zinc-800/60 px-4">
-          <span className="text-xs text-zinc-500 mr-2 shrink-0">Subject</span>
+        <div className="flex items-center border-b border-rule px-4">
+          <span className="eyebrow mr-3 shrink-0">Re</span>
           <input
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Email subject"
-            className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 py-2.5 focus:outline-none"
+            placeholder="Subject"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint py-2.5 focus:outline-none"
           />
         </div>
 
@@ -214,15 +225,20 @@ function ComposeEmail() {
         <div
           ref={bodyRef}
           contentEditable
-          data-placeholder="Write your message..."
-          className={`flex-1 bg-transparent text-sm text-zinc-200 px-4 py-3 focus:outline-none overflow-y-auto [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-zinc-600 [&_a]:text-indigo-400 [&_a]:underline ${
-            maximized ? '' : 'min-h-[200px]'
-          }`}
+          data-placeholder="Write your message…"
+          className={`
+            flex-1 bg-transparent text-sm text-ink leading-relaxed
+            px-4 py-3 focus:outline-none overflow-y-auto
+            [&:empty]:before:content-[attr(data-placeholder)]
+            [&:empty]:before:text-ink-faint
+            [&_a]:text-accent [&_a]:underline
+            ${maximized ? '' : 'min-h-[200px]'}
+          `}
         />
 
         {/* AI Prompt Input */}
         {showAiPrompt && (
-          <div className="flex gap-2 px-4 py-2 border-t border-zinc-800/60">
+          <div className="flex gap-2 px-4 py-3 border-t border-rule bg-cream-soft">
             <input
               type="text"
               value={aiPrompt}
@@ -231,48 +247,61 @@ function ComposeEmail() {
                 if (e.key === 'Enter' && aiPrompt.trim()) handleAiGenerate()
               }}
               placeholder='e.g. "Follow up on project deadline" or "Thank them for the meeting"'
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+              className="
+                flex-1 h-9 px-3 bg-paper border border-rule rounded-md
+                text-sm text-ink placeholder:text-ink-faint
+                focus:outline-none focus:border-ink/40
+              "
               autoFocus
             />
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleAiGenerate}
               disabled={!aiPrompt.trim() || generatingAi}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+              leftIcon={generatingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             >
-              {generatingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {generatingAi ? 'Writing...' : 'Generate'}
-            </button>
+              {generatingAi ? 'Writing' : 'Generate'}
+            </Button>
           </div>
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-rule shrink-0 bg-cream-soft">
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="primary"
               onClick={handleSend}
               disabled={sending || !to.trim()}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              leftIcon={sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {sending ? 'Sending...' : 'Send'}
-            </button>
-            <button
+              {sending ? 'Sending' : 'Send'}
+            </Button>
+            <Button
+              variant={showAiPrompt ? 'accent' : 'secondary'}
+              size="md"
               onClick={() => setShowAiPrompt(!showAiPrompt)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors cursor-pointer ${
-                showAiPrompt
-                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-              }`}
+              leftIcon={<Sparkles className="w-3.5 h-3.5" />}
             >
-              <Sparkles className="w-3.5 h-3.5" />
               Write with AI
-            </button>
+            </Button>
           </div>
-          <p className="text-[11px] text-zinc-600 truncate ml-3">
+          <p className="text-[11px] text-ink-muted truncate ml-3 italic">
             Sending as {connections.find(c => c._id === activeConnection)?.emailAddress}
           </p>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showDiscardConfirm}
+        title="Discard this draft?"
+        message="Your message will be lost. This cannot be undone."
+        confirmText="Discard"
+        cancelText="Keep editing"
+        variant="danger"
+        onConfirm={() => { setShowDiscardConfirm(false); handleClose() }}
+        onCancel={() => setShowDiscardConfirm(false)}
+      />
     </>
   )
 }

@@ -36,6 +36,7 @@ import { useSocket } from '../context/SocketContext'
 import type { Email, EmailCategory } from '../types'
 import { getAvatarColor } from '../lib/avatarColor'
 import { timeAgo } from '../lib/formatDate'
+import Button from '../components/ui/Button'
 
 interface ThreadMessage {
   id: string
@@ -49,10 +50,10 @@ interface ThreadMessage {
   snippet: string
 }
 
-// Check if content has HTML tags (beyond plain text)
 const isHtml = (str: string): boolean => /<[a-z][\s\S]*>/i.test(str)
 
-// Renders email HTML safely in a sandboxed iframe that auto-resizes
+// Renders email HTML safely in a sandboxed iframe that auto-resizes.
+// Style theme matches our cream/ink tokens so emails feel native to the app.
 function EmailBodyRenderer({ html }: { html: string }) {
   const iframeRef = React.useRef<HTMLIFrameElement>(null)
 
@@ -65,23 +66,21 @@ function EmailBodyRenderer({ html }: { html: string }) {
     doc.open()
     doc.write(`<!DOCTYPE html>
       <html><head><style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #d4d4d8; background: transparent; word-wrap: break-word; overflow-wrap: break-word; }
+        body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.65; color: #1a1816; background: transparent; word-wrap: break-word; overflow-wrap: break-word; }
         img { max-width: 100%; height: auto; border-radius: 4px; }
-        a { color: #818cf8; }
-        blockquote { border-left: 3px solid #3f3f46; margin: 8px 0; padding-left: 12px; color: #a1a1aa; }
-        pre { background: #18181b; padding: 8px 12px; border-radius: 6px; overflow-x: auto; }
+        a { color: #c44d3d; text-decoration: underline; text-underline-offset: 2px; }
+        blockquote { border-left: 2px solid #e8e3d8; margin: 8px 0; padding-left: 12px; color: #5c5853; }
+        pre { background: #f7f4ee; padding: 8px 12px; border-radius: 4px; overflow-x: auto; border: 1px solid #e8e3d8; }
         table { border-collapse: collapse; max-width: 100%; }
         td, th { padding: 4px 8px; }
       </style></head><body>${html}</body></html>`)
     doc.close()
 
-    // Auto-resize iframe to content height
     const resize = () => {
       if (iframe.contentDocument?.body) {
         iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px'
       }
     }
-    // Resize after images load
     const images = doc.querySelectorAll('img')
     images.forEach((img) => img.addEventListener('load', resize))
     resize()
@@ -98,20 +97,23 @@ function EmailBodyRenderer({ html }: { html: string }) {
   )
 }
 
-// Category config: icon, label, color for each category
-const CATEGORY_CONFIG: Record<EmailCategory, { icon: React.ElementType; label: string; color: string; bg: string; border: string }> = {
-  personal:      { icon: Users,        label: 'Personal',     color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20' },
-  work:          { icon: Briefcase,    label: 'Work',         color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-  newsletter:    { icon: Newspaper,    label: 'Newsletter',   color: 'text-emerald-400',bg: 'bg-emerald-500/10',border: 'border-emerald-500/20' },
-  marketing:     { icon: Megaphone,    label: 'Marketing',    color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-  receipt:       { icon: Receipt,      label: 'Receipt',      color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20' },
-  calendar:      { icon: CalendarDays, label: 'Calendar',     color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-  notification:  { icon: Bell,         label: 'Notification', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-  'cold-email':  { icon: MailX,        label: 'Cold Email',   color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20' },
-  uncategorized: { icon: Tag,          label: 'Uncategorized',color: 'text-zinc-400',   bg: 'bg-zinc-500/10',   border: 'border-zinc-500/20' },
+// Category config: cream-friendly tones — no neon accents.
+// Each category gets a tasteful muted color paired with hairline border.
+const CATEGORY_CONFIG: Record<
+  EmailCategory,
+  { icon: React.ElementType; label: string; text: string; bg: string; border: string }
+> = {
+  personal:      { icon: Users,        label: 'Personal',     text: 'text-ink',         bg: 'bg-cream-deep',   border: 'border-rule-strong' },
+  work:          { icon: Briefcase,    label: 'Work',         text: 'text-accent-ink',  bg: 'bg-accent-soft',  border: 'border-accent/30' },
+  newsletter:    { icon: Newspaper,    label: 'Newsletter',   text: 'text-success',     bg: 'bg-success-soft', border: 'border-success/20' },
+  marketing:     { icon: Megaphone,    label: 'Marketing',    text: 'text-warning',     bg: 'bg-warning-soft', border: 'border-warning/20' },
+  receipt:       { icon: Receipt,      label: 'Receipt',      text: 'text-success',     bg: 'bg-success-soft', border: 'border-success/20' },
+  calendar:      { icon: CalendarDays, label: 'Calendar',     text: 'text-ink',         bg: 'bg-cream-deep',   border: 'border-rule-strong' },
+  notification:  { icon: Bell,         label: 'Notification', text: 'text-warning',     bg: 'bg-warning-soft', border: 'border-warning/20' },
+  'cold-email':  { icon: MailX,        label: 'Cold',         text: 'text-ink-muted',   bg: 'bg-cream',        border: 'border-rule' },
+  uncategorized: { icon: Tag,          label: 'Other',        text: 'text-ink-muted',   bg: 'bg-cream',        border: 'border-rule' },
 }
 
-// Priority order: important categories first
 const PRIORITY_ORDER: EmailCategory[] = [
   'personal', 'work', 'calendar', 'receipt',
   'newsletter', 'notification', 'marketing', 'cold-email', 'uncategorized',
@@ -121,8 +123,15 @@ function CategoryBadge({ category }: { category: EmailCategory }) {
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.uncategorized
   const Icon = config.icon
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${config.bg} ${config.color} ${config.border}`}>
-      <Icon className="w-2.5 h-2.5" />
+    <span
+      className={`
+        inline-flex items-center gap-1
+        px-1.5 py-0.5 rounded
+        text-[10px] font-medium tracking-[0.08em] uppercase
+        border ${config.bg} ${config.text} ${config.border}
+      `}
+    >
+      <Icon className="w-2.5 h-2.5" strokeWidth={2} />
       {config.label}
     </span>
   )
@@ -158,34 +167,30 @@ function Emails() {
   const [totalEmails, setTotalEmails] = useState(0)
   const [loadingEmails, setLoadingEmails] = useState(true)
 
-  // Fetch emails when connection or page changes
   useEffect(() => {
     if (!activeConnection) return
     setSelectedEmail(null)
     setDraftReply('')
     fetchEmails()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConnection, page])
 
-  // Auto-open an email when navigated here with ?emailId=... (from Ask AI sources).
-  // We fetch the email directly because it might not be on the current page.
+  // Auto-open an email when navigated here with ?emailId=... (from Ask AI).
   useEffect(() => {
     const targetId = searchParams.get('emailId')
     if (!targetId || !activeConnection) return
     ;(async () => {
       try {
-        // Try the loaded list first (avoids an extra request)
         const found = emails.find((e) => e._id === targetId)
         if (found) {
           handleSelectEmail(found)
         } else {
-          // Otherwise fetch from the server
           const { data } = await api.get(`/api/emails/${targetId}`)
           if (data) handleSelectEmail(data)
         }
       } catch {
         toast('Could not open that email', 'error')
       } finally {
-        // Clear the param so refresh doesn't re-trigger
         searchParams.delete('emailId')
         setSearchParams(searchParams, { replace: true })
       }
@@ -193,41 +198,32 @@ function Emails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, activeConnection, emails.length])
 
-  // Reset to page 1 when category or search changes
   const handleCategoryChange = (cat: EmailCategory | 'all' | 'priority') => {
     setActiveCategory(cat)
     setPage(1)
   }
 
-  // Listen for real-time WebSocket events (replaces polling)
-  // When a webhook delivers a new email, the backend pushes it here instantly
+  // Real-time new email push via Socket.io
   useEffect(() => {
     if (!socket || !activeConnection) return
 
     const handleNewEmail = (email: Email) => {
-      // Only add if it belongs to the active connection
-      // Use toString() because MongoDB ObjectIds may not match strict equality
       if (String(email.connectionId) !== String(activeConnection)) return
 
       setEmails((prev) => {
-        // Avoid duplicates — if the email already exists, update it
         const exists = prev.find((e) => e._id === email._id)
-        if (exists) {
-          return prev.map((e) => (e._id === email._id ? email : e))
-        }
-        // Add new email at the top (most recent first)
+        if (exists) return prev.map((e) => (e._id === email._id ? email : e))
         return [email, ...prev]
       })
       setTotalEmails((prev) => prev + 1)
 
-      // Show toast for new emails
       const senderName = email.sender?.match(/^(.+?)\s*</)?.[1] || email.sender
       toast(`New email from ${senderName}`, 'info')
     }
 
     socket.on('email:new', handleNewEmail)
     return () => { socket.off('email:new', handleNewEmail) }
-  }, [socket, activeConnection])
+  }, [socket, activeConnection, toast])
 
   async function fetchEmails() {
     setLoadingEmails(true)
@@ -236,8 +232,8 @@ function Emails() {
       setEmails(data.emails)
       setTotalPages(data.pagination.pages)
       setTotalEmails(data.pagination.total)
-    } catch (err) {
-      // Silent fail — only toast on explicit user actions
+    } catch {
+      // Silent
     } finally {
       setLoadingEmails(false)
     }
@@ -247,10 +243,13 @@ function Emails() {
     if (!activeConnection || syncing) return
     setSyncing(true)
     try {
-      const { data } = await api.post('/api/emails/sync', { connectionId: activeConnection, limit: parseInt(syncLimit) || 25 })
+      const { data } = await api.post('/api/emails/sync', {
+        connectionId: activeConnection,
+        limit: parseInt(syncLimit) || 25,
+      })
       toast(`Synced ${data.emails?.length || 0} emails`, 'success')
       await fetchEmails()
-    } catch (err) {
+    } catch {
       toast('Failed to sync emails', 'error')
     } finally {
       setSyncing(false)
@@ -270,7 +269,7 @@ function Emails() {
       toast('AI reply generated and saved as draft', 'success')
       setShowPromptInput(false)
       setCustomPrompt('')
-    } catch (err) {
+    } catch {
       toast('Failed to generate reply', 'error')
     } finally {
       setGeneratingDraft(false)
@@ -288,11 +287,13 @@ function Emails() {
     if (!selectedEmail || !draftReply.trim() || sending) return
     setSending(true)
     try {
-      await api.post(`/api/emails/send-reply/${selectedEmail._id}`, { replyText: draftReply, draftId: draftId || undefined })
-      toast('Reply sent!', 'success')
+      await api.post(`/api/emails/send-reply/${selectedEmail._id}`, {
+        replyText: draftReply,
+        draftId: draftId || undefined,
+      })
+      toast('Reply sent', 'success')
       setDraftReply('')
       setDraftId(null)
-      // Refresh thread to show sent reply
       if (selectedEmail) fetchThread(selectedEmail._id)
     } catch {
       toast('Failed to send reply', 'error')
@@ -306,7 +307,6 @@ function Emails() {
     try {
       const { data } = await api.get(`/api/emails/thread/${emailId}`)
       setThreadMessages(data.messages)
-      // Expand the last message by default
       if (data.messages.length > 0) {
         setExpandedMessages(new Set([data.messages[data.messages.length - 1].id]))
       }
@@ -341,17 +341,19 @@ function Emails() {
           to: forwardTo.trim(),
           message: replyText.trim(),
         })
-        toast('Email forwarded!', 'success')
+        toast('Email forwarded', 'success')
       } else {
         const senderEmail = extractEmail(msg.sender)
         let toAddr = senderEmail
         let ccAddr = ''
 
         if (replyingTo.mode === 'reply-all') {
-          // Include all To + CC except yourself
           const myEmail = connections.find((c) => c._id === activeConnection)?.emailAddress || ''
           const allRecipients = [msg.to, msg.cc].filter(Boolean).join(', ')
-          const addresses = allRecipients.split(',').map((a) => extractEmail(a.trim())).filter((a) => a && a !== myEmail)
+          const addresses = allRecipients
+            .split(',')
+            .map((a) => extractEmail(a.trim()))
+            .filter((a) => a && a !== myEmail)
           if (!addresses.includes(senderEmail)) addresses.unshift(senderEmail)
           toAddr = addresses[0] || senderEmail
           ccAddr = addresses.slice(1).join(', ')
@@ -366,13 +368,12 @@ function Emails() {
           subject: msg.subject,
           replyText: replyText.trim(),
         })
-        toast('Reply sent!', 'success')
+        toast('Reply sent', 'success')
       }
 
       setReplyingTo(null)
       setReplyText('')
       setForwardTo('')
-      // Refresh thread
       if (selectedEmail) fetchThread(selectedEmail._id)
     } catch {
       toast('Failed to send', 'error')
@@ -395,9 +396,7 @@ function Emails() {
     })
   }
 
-  // Filter by search + category
   const filtered = emails.filter((e) => {
-    // Search filter
     if (search) {
       const q = search.toLowerCase()
       if (
@@ -406,21 +405,17 @@ function Emails() {
         !e.snippet?.toLowerCase().includes(q)
       ) return false
     }
-    // Category filter
     if (activeCategory === 'all') return true
     if (activeCategory === 'priority') {
-      // Priority inbox: show personal, work, calendar first — hide noise
       return ['personal', 'work', 'calendar', 'receipt', 'uncategorized'].includes(e.category)
     }
     return e.category === activeCategory
   })
 
-  // Sort by priority order when in priority view
   const sorted = activeCategory === 'priority'
     ? [...filtered].sort((a, b) => PRIORITY_ORDER.indexOf(a.category) - PRIORITY_ORDER.indexOf(b.category))
     : filtered
 
-  // Count emails per category for the filter pills
   const categoryCounts = emails.reduce((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + 1
     return acc
@@ -437,19 +432,21 @@ function Emails() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4 animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center">
-          <Mail className="w-8 h-8 text-zinc-500" />
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-5 px-4 max-w-md mx-auto text-center animate-fade-in">
+        <div className="w-12 h-12 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
+          <Mail className="w-5 h-5 text-ink-soft" strokeWidth={1.5} />
         </div>
-        <div className="text-center">
-          <p className="text-zinc-300 font-medium">No accounts connected</p>
-          <p className="text-zinc-500 text-sm mt-1">Connect your Gmail or Outlook to get started.</p>
+        <div>
+          <h2 className="display text-xl text-ink">No accounts connected</h2>
+          <p className="text-sm text-ink-soft mt-1">Connect Gmail or Outlook to get started.</p>
         </div>
       </div>
     )
   }
 
+  // ============================================================
   // Thread / Detail view
+  // ============================================================
   if (selectedEmail) {
     const handleBack = () => {
       setSelectedEmail(null)
@@ -463,40 +460,45 @@ function Emails() {
     }
 
     return (
-      <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-4 animate-fade-in">
+      <div className="p-6 lg:p-10 max-w-3xl mx-auto space-y-6 animate-fade-in">
         <button
           onClick={handleBack}
-          className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer eyebrow"
         >
-          <ChevronLeft className="w-4 h-4" /> Back to emails
+          <ChevronLeft className="w-3.5 h-3.5" /> Back to inbox
         </button>
 
-        {/* Thread subject header */}
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-zinc-100 flex-1">
+        {/* Subject — editorial display headline */}
+        <div className="space-y-3 border-b border-rule pb-5">
+          <h2 className="display text-3xl text-ink leading-tight">
             {selectedEmail.subject || '(No subject)'}
           </h2>
-          <CategoryBadge category={selectedEmail.category} />
-          <span className="text-xs text-zinc-600">{threadMessages.length} message{threadMessages.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-3">
+            <CategoryBadge category={selectedEmail.category} />
+            <span className="text-xs text-ink-muted tabular">
+              {threadMessages.length} message{threadMessages.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
-        {/* AI Draft (for the original generate-draft endpoint) */}
+        {/* AI Reply controls */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <button
+            <Button
+              variant="primary"
               onClick={() => handleGenerateDraft(selectedEmail._id)}
               disabled={generatingDraft}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              leftIcon={generatingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             >
-              {generatingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {generatingDraft ? 'Generating...' : 'AI Reply'}
-            </button>
-            <button
+              {generatingDraft ? 'Generating' : 'AI reply'}
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => setShowPromptInput(!showPromptInput)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
+              leftIcon={<Wand2 className="w-3.5 h-3.5" />}
             >
-              <Wand2 className="w-3.5 h-3.5" /> Custom
-            </button>
+              Custom
+            </Button>
           </div>
 
           {showPromptInput && (
@@ -506,30 +508,38 @@ function Emails() {
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && customPrompt.trim()) handleGenerateDraft(selectedEmail._id, customPrompt.trim())
+                  if (e.key === 'Enter' && customPrompt.trim())
+                    handleGenerateDraft(selectedEmail._id, customPrompt.trim())
                 }}
                 placeholder='e.g. "Decline politely" or "Ask for a meeting"'
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+                className="
+                  flex-1 h-10 px-3 bg-paper border border-rule rounded-md
+                  text-sm text-ink placeholder:text-ink-faint
+                  focus:outline-none focus:border-ink/40
+                "
               />
-              <button
+              <Button
+                variant="primary"
                 onClick={() => { if (customPrompt.trim()) handleGenerateDraft(selectedEmail._id, customPrompt.trim()) }}
                 disabled={!customPrompt.trim() || generatingDraft}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                leftIcon={generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               >
-                {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 Generate
-              </button>
+              </Button>
             </div>
           )}
 
           {draftReply && (
-            <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
+            <div className="border-l-2 border-accent pl-5 py-1 space-y-3 -ml-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-indigo-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3" /> AI Draft Reply
+                <span className="eyebrow text-accent-ink flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3" /> AI draft
                 </span>
-                <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">
-                  {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer"
+                >
+                  {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
@@ -537,18 +547,23 @@ function Emails() {
                 value={draftReply}
                 onChange={(e) => setDraftReply(e.target.value)}
                 rows={5}
-                className="w-full bg-zinc-900/60 border border-zinc-700/50 rounded-lg px-3 py-2.5 text-sm text-zinc-200 leading-relaxed focus:outline-none focus:border-indigo-500 resize-y"
+                className="
+                  w-full bg-paper border border-rule rounded-md px-3 py-2.5
+                  text-sm text-ink leading-relaxed
+                  focus:outline-none focus:border-ink/40 resize-y
+                "
               />
               <div className="flex items-center justify-between">
-                <p className="text-[11px] text-zinc-600">Edit above and send directly.</p>
-                <button
+                <p className="text-[11px] text-ink-muted">Edit above and send directly.</p>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleSendReply}
                   disabled={sending || !draftReply.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  leftIcon={sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                 >
-                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  {sending ? 'Sending...' : 'Send Reply'}
-                </button>
+                  {sending ? 'Sending' : 'Send reply'}
+                </Button>
               </div>
             </div>
           )}
@@ -558,12 +573,12 @@ function Emails() {
         {loadingThread ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+              <div key={i} className="border border-rule rounded-md p-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-zinc-800 animate-pulse" />
+                  <div className="w-9 h-9 rounded-full bg-cream-deep animate-pulse" />
                   <div className="flex-1 space-y-2">
-                    <div className="w-32 h-4 bg-zinc-800 animate-pulse rounded" />
-                    <div className="w-48 h-3 bg-zinc-800/60 animate-pulse rounded" />
+                    <div className="w-32 h-4 bg-cream-deep animate-pulse rounded" />
+                    <div className="w-48 h-3 bg-cream-deep animate-pulse rounded" />
                   </div>
                 </div>
               </div>
@@ -578,36 +593,34 @@ function Emails() {
               const isReplyingThis = replyingTo?.messageId === msg.id
 
               return (
-                <div key={msg.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
-                  {/* Message header — click to expand/collapse */}
+                <div key={msg.id} className="border border-rule rounded-md bg-paper overflow-hidden">
+                  {/* Header — click to expand */}
                   <button
                     onClick={() => toggleExpand(msg.id)}
-                    className="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                    className="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-cream-soft transition-colors cursor-pointer"
                   >
                     <div className={`w-9 h-9 rounded-full ${msgAvatar.bg} border ${msgAvatar.border} flex items-center justify-center shrink-0`}>
                       <span className={`text-xs font-medium ${msgAvatar.text}`}>{msgName?.charAt(0)?.toUpperCase() || '?'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-zinc-200">{msgName}</p>
-                        {msgEmail && <p className="text-xs text-zinc-500 truncate">&lt;{msgEmail}&gt;</p>}
+                        <p className="text-sm font-medium text-ink">{msgName}</p>
+                        {msgEmail && <p className="text-xs text-ink-muted truncate">&lt;{msgEmail}&gt;</p>}
                       </div>
                       {!isExpanded && (
-                        <p className="text-xs text-zinc-500 truncate mt-0.5">{msg.snippet}</p>
+                        <p className="text-xs text-ink-muted truncate mt-0.5">{msg.snippet}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-zinc-600">{timeAgo(msg.receivedAt)}</span>
-                      <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      <span className="text-xs text-ink-muted tabular">{timeAgo(msg.receivedAt)}</span>
+                      <ChevronDown className={`w-4 h-4 text-ink-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
 
-                  {/* Expanded body */}
                   {isExpanded && (
                     <>
-                      {/* To / CC info */}
                       {(msg.to || msg.cc) && (
-                        <div className="px-5 pb-2 text-xs text-zinc-600 space-y-0.5">
+                        <div className="px-5 pb-2 text-xs text-ink-muted space-y-0.5 border-t border-rule pt-3">
                           {msg.to && <p>To: {msg.to}</p>}
                           {msg.cc && <p>Cc: {msg.cc}</p>}
                         </div>
@@ -617,81 +630,81 @@ function Emails() {
                         {isHtml(msg.body || '') ? (
                           <EmailBodyRenderer html={msg.body} />
                         ) : (
-                          <pre className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap break-words font-sans">
+                          <pre className="text-sm text-ink leading-relaxed whitespace-pre-wrap break-words font-sans">
                             {msg.body || msg.snippet || ''}
                           </pre>
                         )}
                       </div>
 
-                      {/* Per-message Reply / Reply All / Forward buttons */}
+                      {/* Reply / Reply All / Forward */}
                       <div className="px-5 pb-4 flex items-center gap-2">
-                        <button
+                        <ReplyButton
+                          active={isReplyingThis && replyingTo?.mode === 'reply'}
                           onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'reply' }); setReplyText(''); setForwardTo('') }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
-                            isReplyingThis && replyingTo?.mode === 'reply'
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          <Reply className="w-3.5 h-3.5" /> Reply
-                        </button>
-                        <button
+                          icon={<Reply className="w-3.5 h-3.5" />}
+                          label="Reply"
+                        />
+                        <ReplyButton
+                          active={isReplyingThis && replyingTo?.mode === 'reply-all'}
                           onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'reply-all' }); setReplyText(''); setForwardTo('') }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
-                            isReplyingThis && replyingTo?.mode === 'reply-all'
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          <ReplyAll className="w-3.5 h-3.5" /> Reply all
-                        </button>
-                        <button
+                          icon={<ReplyAll className="w-3.5 h-3.5" />}
+                          label="Reply all"
+                        />
+                        <ReplyButton
+                          active={isReplyingThis && replyingTo?.mode === 'forward'}
                           onClick={(e) => { e.stopPropagation(); setReplyingTo({ messageId: msg.id, mode: 'forward' }); setReplyText(''); setForwardTo('') }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
-                            isReplyingThis && replyingTo?.mode === 'forward'
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
-                          }`}
-                        >
-                          <Forward className="w-3.5 h-3.5" /> Forward
-                        </button>
+                          icon={<Forward className="w-3.5 h-3.5" />}
+                          label="Forward"
+                        />
                       </div>
 
-                      {/* Inline reply/forward form */}
                       {isReplyingThis && (
-                        <div className="px-5 pb-5 space-y-3 border-t border-zinc-800/60 pt-4">
+                        <div className="px-5 pb-5 space-y-3 border-t border-rule pt-4 bg-cream-soft">
                           {replyingTo.mode === 'forward' && (
                             <input
                               type="email"
                               value={forwardTo}
                               onChange={(e) => setForwardTo(e.target.value)}
                               placeholder="Forward to email address"
-                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+                              className="
+                                w-full h-10 px-3 bg-paper border border-rule rounded-md
+                                text-sm text-ink placeholder:text-ink-faint
+                                focus:outline-none focus:border-ink/40
+                              "
                             />
                           )}
                           <textarea
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             rows={4}
-                            placeholder={replyingTo.mode === 'forward' ? 'Add a message (optional)...' : 'Write your reply...'}
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 resize-y"
+                            placeholder={replyingTo.mode === 'forward' ? 'Add a message (optional)…' : 'Write your reply…'}
+                            className="
+                              w-full bg-paper border border-rule rounded-md px-3 py-2.5
+                              text-sm text-ink placeholder:text-ink-faint
+                              focus:outline-none focus:border-ink/40 resize-y
+                            "
                             autoFocus
                           />
                           <div className="flex items-center gap-2">
-                            <button
+                            <Button
+                              variant="primary"
+                              size="sm"
                               onClick={handleThreadReply}
-                              disabled={sendingThreadReply || (replyingTo.mode === 'forward' ? !forwardTo.trim() : !replyText.trim())}
-                              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                              disabled={
+                                sendingThreadReply ||
+                                (replyingTo.mode === 'forward' ? !forwardTo.trim() : !replyText.trim())
+                              }
+                              leftIcon={sendingThreadReply ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                             >
-                              {sendingThreadReply ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                              {sendingThreadReply ? 'Sending...' : replyingTo.mode === 'forward' ? 'Forward' : 'Send'}
-                            </button>
-                            <button
+                              {sendingThreadReply ? 'Sending' : replyingTo.mode === 'forward' ? 'Forward' : 'Send'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => { setReplyingTo(null); setReplyText(''); setForwardTo('') }}
-                              className="px-3 py-2 rounded-lg text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -706,13 +719,22 @@ function Emails() {
     )
   }
 
+  // ============================================================
   // List view
+  // ============================================================
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 lg:p-10 max-w-6xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 border-b border-rule pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Emails</h1>
-          <p className="text-sm text-zinc-500 mt-1">{totalEmails} email{totalEmails !== 1 ? 's' : ''}{activeCategory !== 'all' ? ` in ${activeCategory === 'priority' ? 'priority inbox' : activeCategory}` : ''}</p>
+          <p className="eyebrow">Your inbox</p>
+          <h1 className="display text-4xl text-ink mt-1 leading-tight">Mail.</h1>
+          <p className="text-sm text-ink-soft mt-2 tabular">
+            <span className="text-ink font-medium">{totalEmails}</span>{' '}
+            {totalEmails === 1 ? 'message' : 'messages'}
+            {activeCategory !== 'all' && activeCategory !== 'priority' && ` in ${activeCategory}`}
+            {activeCategory === 'priority' && ' in priority'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -721,37 +743,41 @@ function Emails() {
             max={100}
             value={syncLimit}
             onChange={(e) => setSyncLimit(e.target.value)}
-            className="w-16 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-2.5 text-sm text-zinc-300 text-center focus:outline-none focus:border-indigo-500"
+            className="
+              w-16 h-9 px-2 bg-paper border border-rule rounded-md
+              text-sm text-ink-soft text-center tabular
+              focus:outline-none focus:border-ink/40
+            "
             title="Number of emails to sync"
           />
-          <button
+          <Button
+            variant="primary"
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
+            leftIcon={syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? 'Syncing...' : 'Sync'}
-          </button>
+            {syncing ? 'Syncing' : 'Sync'}
+          </Button>
         </div>
       </div>
 
-      {/* Category filter pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        <FilterPill
+      {/* Category filters — text-only with accent underline */}
+      <div className="flex gap-1 overflow-x-auto pb-1 -mb-1">
+        <CategoryFilter
           active={activeCategory === 'priority'}
           onClick={() => handleCategoryChange('priority')}
           icon={Inbox}
           label="Priority"
         />
-        <FilterPill
+        <CategoryFilter
           active={activeCategory === 'all'}
           onClick={() => handleCategoryChange('all')}
           icon={Mail}
           label="All"
           count={totalEmails}
         />
-        {PRIORITY_ORDER.filter(cat => categoryCounts[cat]).map((cat) => (
-          <FilterPill
+        {PRIORITY_ORDER.filter((cat) => categoryCounts[cat]).map((cat) => (
+          <CategoryFilter
             key={cat}
             active={activeCategory === cat}
             onClick={() => handleCategoryChange(cat)}
@@ -764,36 +790,44 @@ function Emails() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" strokeWidth={1.75} />
         <input
           type="text"
-          placeholder="Search emails..."
+          placeholder="Search messages…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
+          className="
+            w-full h-10 pl-9 pr-9 bg-paper border border-rule rounded-md
+            text-sm text-ink placeholder:text-ink-faint
+            focus:outline-none focus:border-ink/40
+          "
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer"
+            aria-label="Clear search"
+          >
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Email list */}
+      {/* List — flat rows, hairline divider */}
       {sorted.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-12 text-center animate-fade-in">
-          <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center mx-auto mb-4">
-            <Mail className="w-7 h-7 text-zinc-500" />
-          </div>
-          <p className="text-sm text-zinc-300 font-medium">
+        <div className="border border-rule rounded-md bg-cream-soft p-12 text-center">
+          <Mail className="w-7 h-7 text-ink-muted mx-auto mb-3" strokeWidth={1.5} />
+          <p className="text-sm text-ink">
             {emails.length === 0 ? 'No emails yet' : 'No emails match your filters'}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">
-            {emails.length === 0 ? 'Hit Sync to fetch your latest emails.' : 'Try a different category or clear your search.'}
+          <p className="text-xs text-ink-muted mt-1">
+            {emails.length === 0
+              ? 'Hit Sync to fetch your latest emails.'
+              : 'Try a different category or clear your search.'}
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-800 divide-y divide-zinc-800/60 overflow-hidden">
+        <div className="border-t border-rule">
           {sorted.map((email) => {
             const { name } = parseSender(email.sender)
             const avatar = getAvatarColor(name || '')
@@ -801,7 +835,10 @@ function Emails() {
               <button
                 key={email._id}
                 onClick={() => handleSelectEmail(email)}
-                className="w-full text-left px-5 py-4 hover:bg-zinc-900/60 transition-colors flex items-start gap-4 cursor-pointer"
+                className="
+                  w-full text-left px-2 py-4 border-b border-rule
+                  hover:bg-cream-soft transition-colors flex items-start gap-4 cursor-pointer
+                "
               >
                 <div className={`w-9 h-9 rounded-full ${avatar.bg} border ${avatar.border} flex items-center justify-center shrink-0 mt-0.5`}>
                   <span className={`text-xs font-medium ${avatar.text}`}>
@@ -811,18 +848,18 @@ function Emails() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-sm font-medium text-zinc-200 truncate">{name}</p>
+                      <p className="text-sm font-medium text-ink truncate">{name}</p>
                       <CategoryBadge category={email.category} />
                     </div>
-                    <span className="text-xs text-zinc-600 shrink-0">
+                    <span className="text-xs text-ink-muted shrink-0 tabular">
                       {timeAgo(email.receivedAt)}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-300 truncate mt-0.5">{email.subject || '(No subject)'}</p>
-                  <p className="text-xs text-zinc-500 truncate mt-0.5">{email.snippet}</p>
+                  <p className="text-sm text-ink-soft truncate mt-1">{email.subject || '(No subject)'}</p>
+                  <p className="text-xs text-ink-muted truncate mt-0.5">{email.snippet}</p>
                 </div>
                 {email.isProcessed && (
-                  <span className="shrink-0 mt-1 w-2 h-2 rounded-full bg-green-500/60" title="Processed" />
+                  <span className="shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-success" title="Processed" />
                 )}
               </button>
             )
@@ -833,24 +870,28 @@ function Emails() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-muted tabular">
             Page {page} of {totalPages}
           </p>
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Prev
-            </button>
-            <button
+              Prev
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
             >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+              Next
+            </Button>
           </div>
         </div>
       )}
@@ -858,7 +899,17 @@ function Emails() {
   )
 }
 
-function FilterPill({ active, onClick, icon: Icon, label, count }: {
+// ============================================================================
+// Sub-components
+// ============================================================================
+
+function CategoryFilter({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  count,
+}: {
   active: boolean
   onClick: () => void
   icon: React.ElementType
@@ -868,15 +919,46 @@ function FilterPill({ active, onClick, icon: Icon, label, count }: {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border ${
-        active
-          ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-300'
-      }`}
+      className={`
+        flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap
+        transition-colors cursor-pointer
+        ${active
+          ? 'text-ink border-b-2 border-accent -mb-px'
+          : 'text-ink-muted hover:text-ink border-b-2 border-transparent'}
+      `}
     >
-      <Icon className="w-3.5 h-3.5" />
+      <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
       {label}
-      {count !== undefined && <span className={`ml-0.5 ${active ? 'text-indigo-400/70' : 'text-zinc-600'}`}>{count}</span>}
+      {typeof count === 'number' && (
+        <span className="text-ink-faint tabular">· {count}</span>
+      )}
+    </button>
+  )
+}
+
+function ReplyButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: (e: React.MouseEvent) => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium
+        transition-colors cursor-pointer
+        ${active
+          ? 'bg-accent-soft border-accent/30 text-accent-ink'
+          : 'bg-cream border-rule text-ink-soft hover:text-ink hover:border-ink/30'}
+      `}
+    >
+      {icon} {label}
     </button>
   )
 }

@@ -3,7 +3,6 @@ import {
   Mail,
   ListChecks,
   AlertTriangle,
-  Reply,
   RefreshCw,
   Brain,
   Clock,
@@ -11,7 +10,7 @@ import {
   Loader2,
   CheckCircle2,
   Circle,
-  ArrowUpRight,
+  Reply,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -21,6 +20,8 @@ import { useSocket } from '../context/SocketContext'
 import { DashboardSkeleton } from '../components/Skeleton'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { formatDate } from '../lib/formatDate'
+import Button from '../components/ui/Button'
+import Stat from '../components/ui/Stat'
 import type { Commitment } from '../types'
 
 interface Stats {
@@ -35,7 +36,12 @@ function Dashboard() {
   const { toast } = useToast()
   const { connections, activeConnection, loading } = useConnections()
   const socket = useSocket()
-  const [stats, setStats] = useState<Stats>({ totalEmails: 0, pendingCommitments: 0, overdueCount: 0, replyNeeded: 0 })
+  const [stats, setStats] = useState<Stats>({
+    totalEmails: 0,
+    pendingCommitments: 0,
+    overdueCount: 0,
+    replyNeeded: 0,
+  })
   const [commitments, setCommitments] = useState<Commitment[]>([])
   const [syncing, setSyncing] = useState(false)
   const [extracting, setExtracting] = useState(false)
@@ -63,24 +69,22 @@ function Dashboard() {
           replyNeeded: pending.filter((c) => c.replyRequired).length,
         })
         setCommitments(comms)
-      } catch (err) {
+      } catch {
         toast('Failed to load dashboard data', 'error')
       } finally {
         setLoadingData(false)
       }
     }
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConnection])
 
-  // Listen for real-time new emails via WebSocket
+  // Real-time email count via WebSocket
   useEffect(() => {
     if (!socket) return
-
     const handleNewEmail = () => {
-      // Increment email count when a new email arrives via webhook
       setStats((prev) => ({ ...prev, totalEmails: prev.totalEmails + 1 }))
     }
-
     socket.on('email:new', handleNewEmail)
     return () => { socket.off('email:new', handleNewEmail) }
   }, [socket])
@@ -105,7 +109,7 @@ function Dashboard() {
         replyNeeded: pending.filter((c) => c.replyRequired).length,
       })
       setCommitments(comms)
-    } catch (err) {
+    } catch {
       toast('Failed to sync emails', 'error')
     } finally {
       setSyncing(false)
@@ -128,7 +132,7 @@ function Dashboard() {
         replyNeeded: pending.filter((c) => c.replyRequired).length,
       }))
       setCommitments(commsData)
-    } catch (err) {
+    } catch {
       toast('Failed to extract commitments', 'error')
     } finally {
       setExtracting(false)
@@ -143,10 +147,10 @@ function Dashboard() {
       )
       setStats((prev) => ({
         ...prev,
-        pendingCommitments: prev.pendingCommitments - 1,
+        pendingCommitments: Math.max(0, prev.pendingCommitments - 1),
       }))
       toast('Marked as complete', 'success')
-    } catch (err) {
+    } catch {
       toast('Failed to update commitment', 'error')
     }
   }
@@ -157,20 +161,19 @@ function Dashboard() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-          <Mail className="w-8 h-8 text-zinc-500" />
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-6 px-4 max-w-md mx-auto text-center">
+        <div className="w-12 h-12 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
+          <Mail className="w-5 h-5 text-ink-soft" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-semibold text-zinc-100">No email accounts connected</h2>
-        <p className="text-zinc-500 text-center max-w-sm">
-          Connect your Gmail or Outlook account to start tracking commitments.
-        </p>
-        <button
-          onClick={() => navigate('/settings')}
-          className="mt-2 px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors cursor-pointer"
-        >
-          Connect Account
-        </button>
+        <div className="space-y-2">
+          <h2 className="display text-2xl text-ink">No accounts yet.</h2>
+          <p className="text-sm text-ink-soft leading-relaxed">
+            Connect your Gmail or Outlook account to begin tracking commitments.
+          </p>
+        </div>
+        <Button variant="primary" onClick={() => navigate('/settings')}>
+          Connect an account
+        </Button>
       </div>
     )
   }
@@ -180,186 +183,159 @@ function Dashboard() {
   )
   const recentCommitments = commitments.slice(0, 8)
 
+  // Date for greeting — gives the page a "morning paper" feel
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  })
+
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Dashboard</h1>
-        <p className="text-sm text-zinc-500 mt-1">Overview of your email commitments</p>
+    <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-12 animate-fade-in">
+      {/* ===== Header — editorial, like a publication masthead ====== */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 border-b border-rule pb-8">
+        <div>
+          <p className="eyebrow">{today}</p>
+          <h1 className="display text-5xl text-ink mt-1.5 leading-[0.95]">
+            Today<span className="text-accent">.</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleSync}
+            disabled={syncing}
+            leftIcon={<RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />}
+          >
+            {syncing ? 'Syncing' : 'Sync inbox'}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleExtract}
+            disabled={extracting}
+            leftIcon={extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+          >
+            {extracting ? 'Extracting' : 'Extract commitments'}
+          </Button>
+        </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Mail} label="Synced Emails" value={stats.totalEmails} color="indigo" />
-        <StatCard icon={ListChecks} label="Pending" value={stats.pendingCommitments} color="amber" />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueCount} color="red" />
-        <StatCard icon={Reply} label="Needs Reply" value={stats.replyNeeded} color="purple" />
-      </div>
-
-      {/* Quick actions */}
-      <div className="flex flex-wrap gap-3">
-        <ActionButton
-          icon={syncing ? Loader2 : RefreshCw}
-          label={syncing ? 'Syncing...' : 'Sync Emails'}
-          onClick={handleSync}
-          disabled={syncing}
-          spinning={syncing}
+      {/* ===== Stats — giant editorial numbers, no boxes ============ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
+        <Stat value={stats.totalEmails}        label="Synced emails" />
+        <Stat value={stats.pendingCommitments} label="Pending" />
+        <Stat
+          value={stats.overdueCount}
+          label="Overdue"
+          accent={stats.overdueCount > 0}
         />
-        <ActionButton
-          icon={extracting ? Loader2 : Brain}
-          label={extracting ? 'Extracting...' : 'Extract Commitments'}
-          onClick={handleExtract}
-          disabled={extracting}
-          spinning={extracting}
-        />
+        <Stat value={stats.replyNeeded}        label="Reply needed" />
       </div>
 
-      {/* Overdue alerts */}
+      {/* ===== Overdue alerts — terracotta-warm panel ============== */}
       {overdueCommitments.length > 0 && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-red-400">
-            <AlertTriangle className="w-4.5 h-4.5" />
-            <h3 className="font-semibold text-sm">Overdue Commitments</h3>
+        <section className="border-l-2 border-accent pl-5 py-1 space-y-3">
+          <div className="flex items-center gap-2 text-accent-ink">
+            <AlertTriangle className="w-4 h-4" strokeWidth={1.75} />
+            <p className="eyebrow text-accent-ink">Overdue</p>
           </div>
-          <div className="space-y-2">
+          <ul className="space-y-1">
             {overdueCommitments.map((c) => (
-              <div
+              <li
                 key={c._id}
-                className="flex items-center justify-between bg-zinc-900/60 rounded-lg px-4 py-3 border border-zinc-800/50"
+                className="flex items-center justify-between gap-4 py-2 border-b border-rule last:border-b-0"
               >
                 <div className="min-w-0">
-                  <p className="text-sm text-zinc-200 truncate">{c.summary}</p>
-                  <p className="text-xs text-red-400/80 mt-0.5">
+                  <p className="text-sm text-ink truncate">{c.summary}</p>
+                  <p className="text-xs text-accent-ink mt-0.5 tabular">
                     Due {formatDate(c.deadline!)}
                   </p>
                 </div>
                 <button
                   onClick={() => handleMarkComplete(c._id)}
-                  className="text-xs text-zinc-500 hover:text-green-400 transition-colors shrink-0 ml-4 cursor-pointer"
+                  className="text-xs text-ink-muted hover:text-success transition-colors shrink-0 cursor-pointer underline-offset-4 hover:underline"
                 >
                   Mark done
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
 
-      {/* Recent commitments */}
-      <div className="space-y-4">
+      {/* ===== Recent commitments — flat list, matches /commitments == */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-100">Recent Commitments</h2>
+          <h2 className="eyebrow">Recent commitments</h2>
           {commitments.length > 0 && (
             <button
               onClick={() => navigate('/commitments')}
-              className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors cursor-pointer"
+              className="
+                text-xs text-ink-soft hover:text-ink
+                flex items-center gap-1 transition-colors cursor-pointer
+                underline-offset-4 hover:underline
+              "
             >
-              View all <ChevronRight className="w-3.5 h-3.5" />
+              View all <ChevronRight className="w-3 h-3" />
             </button>
           )}
         </div>
 
         {recentCommitments.length === 0 ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
-            <ListChecks className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-            <p className="text-sm text-zinc-500">
-              No commitments yet. Sync your emails and extract commitments to get started.
+          <div className="border border-rule rounded-md bg-cream-soft p-12 text-center">
+            <ListChecks className="w-7 h-7 text-ink-muted mx-auto mb-3" strokeWidth={1.5} />
+            <p className="text-sm text-ink-soft">
+              No commitments yet. Sync your emails, then extract.
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border border-zinc-800 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-5 py-3">Status</th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-5 py-3">Summary</th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-5 py-3 hidden md:table-cell">Priority</th>
-                  <th className="text-left text-xs font-medium text-zinc-500 uppercase tracking-wider px-5 py-3 hidden sm:table-cell">Deadline</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60">
-                {recentCommitments.map((c) => (
-                  <tr key={c._id} className="hover:bg-zinc-900/40 transition-colors">
-                    <td className="px-5 py-3.5">
-                      {c.status === 'completed' ? (
-                        <CheckCircle2 className="w-4.5 h-4.5 text-green-500" />
-                      ) : (
-                        <button onClick={() => handleMarkComplete(c._id)} className="cursor-pointer">
-                          <Circle className="w-4.5 h-4.5 text-zinc-600 hover:text-green-500 transition-colors" />
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className={`text-sm ${c.status === 'completed' ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
-                        {c.summary}
-                      </p>
-                      {c.replyRequired && (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-purple-400 mt-1">
-                          <Reply className="w-3 h-3" /> Reply needed
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 hidden md:table-cell">
-                      <PriorityBadge priority={c.priority} />
-                    </td>
-                    <td className="px-5 py-3.5 hidden sm:table-cell">
-                      {c.deadline ? (
-                        <span className="flex items-center gap-1.5 text-sm text-zinc-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          {formatDate(c.deadline)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-zinc-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <button
-                        onClick={() => navigate('/commitments')}
-                        className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-pointer"
-                      >
-                        <ArrowUpRight className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="border-t border-rule">
+            {recentCommitments.map((c) => (
+              <div
+                key={c._id}
+                className="flex items-start gap-4 border-b border-rule px-2 py-4 hover:bg-cream-soft transition-colors group"
+              >
+                <button
+                  onClick={() => c.status === 'pending' && handleMarkComplete(c._id)}
+                  disabled={c.status === 'completed'}
+                  className="mt-0.5 shrink-0 cursor-pointer disabled:cursor-default"
+                  aria-label="Mark complete"
+                >
+                  {c.status === 'completed' ? (
+                    <CheckCircle2 className="w-4.5 h-4.5 text-success" strokeWidth={1.75} />
+                  ) : (
+                    <Circle className="w-4.5 h-4.5 text-ink-muted hover:text-success transition-colors" strokeWidth={1.5} />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm ${
+                      c.status === 'completed' ? 'text-ink-muted line-through' : 'text-ink'
+                    }`}
+                  >
+                    {c.summary}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs">
+                    <PriorityBadge priority={c.priority} />
+                    {c.deadline && (
+                      <span className="flex items-center gap-1 text-ink-muted tabular">
+                        <Clock className="w-3 h-3" strokeWidth={1.75} />
+                        {formatDate(c.deadline)}
+                      </span>
+                    )}
+                    {c.replyRequired && (
+                      <span className="flex items-center gap-1 text-accent-ink">
+                        <Reply className="w-3 h-3" strokeWidth={1.75} /> Reply needed
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
-  )
-}
-
-function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: 'indigo' | 'amber' | 'red' | 'purple' }) {
-  const colors = {
-    indigo: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
-    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    red: 'bg-red-500/10 border-red-500/20 text-red-400',
-    purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
-  }
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 animate-fade-in-up">
-      <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${colors[color]}`}>
-        <Icon className="w-4.5 h-4.5" />
-      </div>
-      <p className="text-2xl font-bold text-zinc-100 mt-3">{value}</p>
-      <p className="text-xs text-zinc-500 mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-function ActionButton({ icon: Icon, label, onClick, disabled, spinning }: { icon: React.ElementType; label: string; onClick: () => void; disabled?: boolean; spinning?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-    >
-      <Icon className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`} />
-      {label}
-    </button>
   )
 }
 

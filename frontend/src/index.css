@@ -43,10 +43,6 @@
   --color-danger:       #a93c2e;   /* slightly deeper terracotta          */
   --color-danger-soft:  #faeae6;
 
-  /* ---- Legacy zinc tokens (kept so unmigrated pages don't break) ------ */
-  --color-brand:        #6366f1;
-  --color-brand-hover:  #818cf8;
-
   /* ---- Typography ------------------------------------------------------ */
   --font-display: "Newsreader", "Source Serif 4", Georgia, ui-serif, serif;
   --font-sans:    "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;

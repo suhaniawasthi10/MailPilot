@@ -1,19 +1,23 @@
 /**
- * Generate a consistent color from a sender's name.
- * Same name always produces the same color (like Slack/Gmail).
+ * Generate a consistent avatar color from a sender's name.
+ *
+ * Same input always produces the same color (like Slack/Gmail).
+ * Palette is tuned for our cream/ink theme — muted, watercolor-style
+ * tones that sit cleanly on cream paper. No neon, no /15 dark-mode bg.
  */
 
 const COLORS = [
-  { bg: 'bg-rose-500/15', border: 'border-rose-500/25', text: 'text-rose-400' },
-  { bg: 'bg-blue-500/15', border: 'border-blue-500/25', text: 'text-blue-400' },
-  { bg: 'bg-emerald-500/15', border: 'border-emerald-500/25', text: 'text-emerald-400' },
-  { bg: 'bg-violet-500/15', border: 'border-violet-500/25', text: 'text-violet-400' },
-  { bg: 'bg-amber-500/15', border: 'border-amber-500/25', text: 'text-amber-400' },
-  { bg: 'bg-cyan-500/15', border: 'border-cyan-500/25', text: 'text-cyan-400' },
-  { bg: 'bg-pink-500/15', border: 'border-pink-500/25', text: 'text-pink-400' },
-  { bg: 'bg-teal-500/15', border: 'border-teal-500/25', text: 'text-teal-400' },
-  { bg: 'bg-orange-500/15', border: 'border-orange-500/25', text: 'text-orange-400' },
-  { bg: 'bg-indigo-500/15', border: 'border-indigo-500/25', text: 'text-indigo-400' },
+  // Editorial palette: tinted "ink on aged paper" — light bg + rich text
+  { bg: 'bg-rose-100',    border: 'border-rose-200',    text: 'text-rose-800'    }, // dusty rose
+  { bg: 'bg-amber-100',   border: 'border-amber-200',   text: 'text-amber-900'   }, // clay
+  { bg: 'bg-orange-100',  border: 'border-orange-200',  text: 'text-orange-900'  }, // terracotta
+  { bg: 'bg-emerald-100', border: 'border-emerald-200', text: 'text-emerald-900' }, // sage
+  { bg: 'bg-teal-100',    border: 'border-teal-200',    text: 'text-teal-900'    }, // mint
+  { bg: 'bg-blue-100',    border: 'border-blue-200',    text: 'text-blue-900'    }, // dusty blue
+  { bg: 'bg-violet-100',  border: 'border-violet-200',  text: 'text-violet-900'  }, // plum
+  { bg: 'bg-pink-100',    border: 'border-pink-200',    text: 'text-pink-900'    }, // soft pink
+  { bg: 'bg-stone-200',   border: 'border-stone-300',   text: 'text-stone-800'   }, // warm tan
+  { bg: 'bg-slate-200',   border: 'border-slate-300',   text: 'text-slate-800'   }, // pewter
 ]
 
 export function getAvatarColor(name: string) {
