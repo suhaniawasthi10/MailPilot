@@ -4,6 +4,7 @@ import { Sparkles, Send, Loader2, ChevronDown, ChevronRight, Mail, Database, Ale
 import api from '../lib/api'
 import { useConnections } from '../context/ConnectionContext'
 import { formatDate } from '../lib/formatDate'
+import ConfirmModal from '../components/ConfirmModal'
 
 // Persist chat history per connection in localStorage so it survives page reloads
 const CHAT_STORAGE_KEY = (connectionId: string) => `mailpilot_chat_${connectionId}`
@@ -65,6 +66,7 @@ function Ask() {
   const [mode, setMode] = useState<Mode>('hybrid')
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null)
   const [indexing, setIndexing] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new messages arrive
@@ -125,9 +127,14 @@ function Ask() {
 
   const handleClearChat = () => {
     if (!activeConnection || messages.length === 0) return
-    if (!confirm('Clear this conversation? This cannot be undone.')) return
+    setShowClearConfirm(true)
+  }
+
+  const confirmClearChat = () => {
+    if (!activeConnection) return
     setMessages([])
     localStorage.removeItem(CHAT_STORAGE_KEY(activeConnection))
+    setShowClearConfirm(false)
   }
 
   const handleOpenSource = (emailId: string) => {
@@ -328,6 +335,17 @@ function Ask() {
           </button>
         </form>
       </div>
+
+      <ConfirmModal
+        open={showClearConfirm}
+        title="Clear conversation?"
+        message="This will permanently delete all messages in this chat. This cannot be undone."
+        confirmText="Clear chat"
+        cancelText="Keep"
+        variant="danger"
+        onConfirm={confirmClearChat}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   )
 }
