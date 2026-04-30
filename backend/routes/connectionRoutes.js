@@ -1,9 +1,8 @@
 import express from 'express';
 import EmailConnection from '../models/EmailConnection.js';
-import Email from '../models/Email.js';
-import Commitment from '../models/Commitment.js';
 import auth from '../middleware/auth.js';
 import { validateParamId } from '../middleware/validate.js';
+import { deleteConnectionFully } from '../services/connectionCleanupService.js';
 
 const router = express.Router();
 
@@ -22,7 +21,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// @desc    Delete a connection and its associated emails + commitments
+// @desc    Delete a connection and all its data (Pinecone + Mongo + provider unsubscribe)
 // @route   DELETE /api/connections/:id
 router.delete('/:id', auth, validateParamId, async (req, res) => {
     try {
@@ -35,15 +34,7 @@ router.delete('/:id', auth, validateParamId, async (req, res) => {
             return res.status(404).json({ message: 'Connection not found or not yours' });
         }
 
-        // Delete all commitments tied to this connection
-        await Commitment.deleteMany({ connectionId: connection._id });
-
-        // Delete all emails tied to this connection
-        await Email.deleteMany({ connectionId: connection._id });
-
-        // Delete the connection itself
-        await EmailConnection.findByIdAndDelete(connection._id);
-
+        await deleteConnectionFully(connection);
         res.json({ message: 'Connection and associated data deleted' });
     } catch (error) {
         console.error('Delete connection error:', error.message);

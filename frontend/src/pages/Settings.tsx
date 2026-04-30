@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Mail,
   Plus,
@@ -9,6 +10,7 @@ import {
   Bold,
   Italic,
   Link,
+  AlertOctagon,
 } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -16,15 +18,19 @@ import { useConnections } from '../context/ConnectionContext'
 import { SettingsSkeleton } from '../components/Skeleton'
 import Button from '../components/ui/Button'
 import ConfirmModal from '../components/ConfirmModal'
+import { disconnectSocket } from '../context/SocketContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 function Settings() {
   const { toast } = useToast()
   const { connections, loading, refresh } = useConnections()
+  const navigate = useNavigate()
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [savingSignature, setSavingSignature] = useState(false)
   const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; email: string } | null>(null)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -80,6 +86,21 @@ function Settings() {
   const handleConnectMicrosoft = () => {
     const token = localStorage.getItem('token')
     window.location.href = `${API_URL}/auth/microsoft/connect?token=${token}`
+  }
+
+  const confirmDeleteAccount = async () => {
+    setDeletingAccount(true)
+    try {
+      await api.delete('/api/user')
+      // Local cleanup so the redirect lands on a clean Login screen
+      localStorage.removeItem('token')
+      disconnectSocket()
+      navigate('/login', { replace: true })
+    } catch {
+      toast('Failed to delete account', 'error')
+      setDeletingAccount(false)
+      setShowDeleteAccount(false)
+    }
   }
 
   if (loading) {
@@ -276,7 +297,36 @@ function Settings() {
           Mailpilot reads your email so you don't have to. It extracts commitments,
           drafts replies, and answers questions — grounded in your actual inbox.
         </p>
-        <p className="eyebrow mt-4">Powered by Groq · Chroma · MongoDB</p>
+        <p className="eyebrow mt-4">Powered by Groq · Pinecone · MongoDB</p>
+      </section>
+
+      {/* ===========================================================
+            Danger zone
+         =========================================================== */}
+      <section className="space-y-4">
+        <h2 className="eyebrow text-danger">Danger zone</h2>
+        <div className="border border-danger/30 rounded-md bg-danger-soft/40 p-5 flex items-start gap-4">
+          <div className="w-9 h-9 rounded-md border border-danger/30 bg-paper flex items-center justify-center shrink-0">
+            <AlertOctagon className="w-4 h-4 text-danger" strokeWidth={1.75} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-ink">Delete account</p>
+            <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+              Permanently removes your account, every connected mailbox, all synced
+              emails, all extracted commitments, and your indexed embeddings. This
+              cannot be undone.
+            </p>
+          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setShowDeleteAccount(true)}
+            disabled={deletingAccount}
+            leftIcon={deletingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : undefined}
+          >
+            {deletingAccount ? 'Deleting…' : 'Delete account'}
+          </Button>
+        </div>
       </section>
 
       {/* Disconnect confirm modal */}
@@ -293,6 +343,19 @@ function Settings() {
         variant="danger"
         onConfirm={confirmDisconnect}
         onCancel={() => setPendingDisconnect(null)}
+      />
+
+      {/* Delete account confirm modal — type-to-confirm */}
+      <ConfirmModal
+        open={showDeleteAccount}
+        title="Delete your account?"
+        message="This permanently deletes every connected mailbox, all synced emails, all commitments, and your indexed embeddings. There is no undo."
+        confirmText="Delete account"
+        cancelText="Keep"
+        variant="danger"
+        requireText="delete"
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => setShowDeleteAccount(false)}
       />
     </div>
   )
