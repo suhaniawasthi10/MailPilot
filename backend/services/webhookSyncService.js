@@ -20,6 +20,7 @@ import { getGmailClient } from '../utils/connectionHelper.js';
 import { getEmailBody, getHeader } from '../utils/emailParser.js';
 import { getFreshMicrosoftToken } from '../utils/microsoftTokenHelper.js';
 import { categorizeEmail } from './groqService.js';
+import { indexEmail } from './embeddingService.js';
 import { emitToUser } from './socketService.js';
 
 /**
@@ -141,6 +142,10 @@ export const handleGoogleNotification = async (base64Data) => {
                 } catch (err) {
                     console.error(`Webhook categorization failed for ${email._id}:`, err.message);
                 }
+                // Index for RAG so the email is searchable immediately,
+                // not just on the next manual sync.
+                indexEmail(email, connection.userId.toString())
+                    .catch((err) => console.error(`Webhook indexing failed for ${email._id}:`, err.message));
                 // Push each email to the user's browser in real-time
                 emitToUser(connection.userId, 'email:new', email);
             }
@@ -221,6 +226,10 @@ export const handleMicrosoftNotification = async (notifications) => {
             } catch (err) {
                 console.error(`Webhook categorization failed for ${saved._id}:`, err.message);
             }
+
+            // Index for RAG so the email is searchable immediately.
+            indexEmail(saved, connection.userId.toString())
+                .catch((err) => console.error(`Webhook indexing failed for ${saved._id}:`, err.message));
 
             // Push to user's browser in real-time via WebSocket
             emitToUser(connection.userId, 'email:new', saved);

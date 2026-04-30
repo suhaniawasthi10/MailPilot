@@ -196,16 +196,16 @@ const categorizeEmail = async (subject, sender, snippet) => {
  * @param {Array} emails - Array of { subject, sender, snippet } objects
  * @returns {Array} Array of category strings in the same order
  */
-const categorizeEmails = async (emails) => {
-    if (emails.length === 0) return [];
-    if (emails.length === 1) return [await categorizeEmail(emails[0].subject, emails[0].sender, emails[0].snippet)];
+// Chunk size for batch categorization. Snippet-only payload is small,
+// so we can fit 30 emails per call comfortably under Groq's TPD limits.
+const CATEGORIZE_CHUNK_SIZE = 30;
 
-    try {
-        const emailList = emails.map((e, i) =>
-            `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Snippet: ${e.snippet || '(empty)'}`
-        ).join('\n');
+const categorizeChunk = async (emails) => {
+    const emailList = emails.map((e, i) =>
+        `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Snippet: ${e.snippet || '(empty)'}`
+    ).join('\n');
 
-        const prompt = `You are an email classifier. Categorize each email into EXACTLY ONE of these categories:
+    const prompt = `You are an email classifier. Categorize each email into EXACTLY ONE of these categories:
 personal, work, newsletter, marketing, receipt, calendar, notification, cold-email
 
 Respond with ONLY valid JSON: {"categories": ["category1", "category2", ...]}
@@ -214,31 +214,45 @@ The array must have exactly ${emails.length} items, one per email in order.
 EMAILS:
 ${emailList}`;
 
-        const data = await callGroqWithRetry({
-            model: 'llama-3.3-70b-versatile',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1,
-            max_tokens: 512,
-            response_format: { type: 'json_object' },
-        });
+    const data = await callGroqWithRetry({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 512,
+        response_format: { type: 'json_object' },
+    });
 
-        const parsed = JSON.parse(data.choices[0].message.content);
-        if (Array.isArray(parsed.categories) && parsed.categories.length === emails.length) {
-            return parsed.categories.map(c => VALID_CATEGORIES.includes(c) ? c : 'uncategorized');
+    const parsed = JSON.parse(data.choices[0].message.content);
+    if (Array.isArray(parsed.categories) && parsed.categories.length === emails.length) {
+        return parsed.categories.map(c => VALID_CATEGORIES.includes(c) ? c : 'uncategorized');
+    }
+    return null; // signal caller to fall back
+};
+
+const categorizeEmails = async (emails) => {
+    if (emails.length === 0) return [];
+    if (emails.length === 1) return [await categorizeEmail(emails[0].subject, emails[0].sender, emails[0].snippet)];
+
+    const results = [];
+    for (let i = 0; i < emails.length; i += CATEGORIZE_CHUNK_SIZE) {
+        const chunk = emails.slice(i, i + CATEGORIZE_CHUNK_SIZE);
+        try {
+            const chunkResult = await categorizeChunk(chunk);
+            if (chunkResult) {
+                results.push(...chunkResult);
+                continue;
+            }
+            console.warn('Batch categorization returned wrong count, falling back to individual for this chunk');
+        } catch (error) {
+            console.error('Batch categorization error:', error.message);
         }
-        // Fallback: wrong array length, categorize individually
-        console.warn('Batch categorization returned wrong count, falling back to individual');
-    } catch (error) {
-        console.error('Batch categorization error:', error.message);
+        // Fallback for this chunk only — keep going for the rest
+        for (const email of chunk) {
+            const category = await categorizeEmail(email.subject, email.sender, email.snippet);
+            results.push(category);
+        }
     }
-
-    // Fallback: individual categorization
-    const categories = [];
-    for (const email of emails) {
-        const category = await categorizeEmail(email.subject, email.sender, email.snippet);
-        categories.push(category);
-    }
-    return categories;
+    return results;
 };
 
 /**
@@ -393,16 +407,17 @@ YOUR REMINDER:`;
  * @param {Array} emails - Array of { subject, sender, body } objects
  * @returns {Array} Array of extraction results in the same order
  */
-const extractCommitmentsBatch = async (emails) => {
-    if (emails.length === 0) return [];
-    if (emails.length === 1) return [await extractCommitments(emails[0].subject, emails[0].sender, emails[0].body)];
+// Chunk size for batch extraction. Full email bodies (truncated to 3000
+// chars each) make this payload heavy, so we keep chunks small to stay
+// under Groq's per-request and per-day token limits.
+const EXTRACT_CHUNK_SIZE = 15;
 
-    try {
-        const emailList = emails.map((e, i) =>
-            `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Body: ${truncateBody(e.body)}`
-        ).join('\n---\n');
+const extractChunk = async (emails) => {
+    const emailList = emails.map((e, i) =>
+        `[${i}] Subject: ${e.subject || '(no subject)'} | From: ${e.sender || '(unknown)'} | Body: ${truncateBody(e.body)}`
+    ).join('\n---\n');
 
-        const prompt = `You are an AI assistant that analyzes emails and extracts actionable information.
+    const prompt = `You are an AI assistant that analyzes emails and extracts actionable information.
 
 For EACH email below, extract:
 1. A brief summary of any commitment, action item, or task
@@ -420,28 +435,43 @@ The array must have exactly ${emails.length} items, one per email in order.
 EMAILS:
 ${emailList}`;
 
-        const data = await callGroqWithRetry({
-            model: 'llama-3.3-70b-versatile',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1,
-            max_tokens: 2048,
-            response_format: { type: 'json_object' },
-        });
+    const data = await callGroqWithRetry({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 2048,
+        response_format: { type: 'json_object' },
+    });
 
-        const parsed = JSON.parse(data.choices[0].message.content);
-        if (Array.isArray(parsed.items) && parsed.items.length === emails.length) {
-            return parsed.items.map(item => validateExtraction(item));
-        }
-        console.warn('Batch extraction returned wrong count, falling back to individual');
-    } catch (error) {
-        console.error('Batch extraction error:', error.message);
+    const parsed = JSON.parse(data.choices[0].message.content);
+    if (Array.isArray(parsed.items) && parsed.items.length === emails.length) {
+        return parsed.items.map(item => validateExtraction(item));
     }
+    return null; // signal caller to fall back
+};
 
-    // Fallback: individual extraction
+const extractCommitmentsBatch = async (emails) => {
+    if (emails.length === 0) return [];
+    if (emails.length === 1) return [await extractCommitments(emails[0].subject, emails[0].sender, emails[0].body)];
+
     const results = [];
-    for (const email of emails) {
-        const result = await extractCommitments(email.subject, email.sender, email.body);
-        results.push(result);
+    for (let i = 0; i < emails.length; i += EXTRACT_CHUNK_SIZE) {
+        const chunk = emails.slice(i, i + EXTRACT_CHUNK_SIZE);
+        try {
+            const chunkResult = await extractChunk(chunk);
+            if (chunkResult) {
+                results.push(...chunkResult);
+                continue;
+            }
+            console.warn('Batch extraction returned wrong count, falling back to individual for this chunk');
+        } catch (error) {
+            console.error('Batch extraction error:', error.message);
+        }
+        // Fallback for this chunk only — keep going for the rest
+        for (const email of chunk) {
+            const result = await extractCommitments(email.subject, email.sender, email.body);
+            results.push(result);
+        }
     }
     return results;
 };
@@ -477,4 +507,4 @@ EMAIL BODY:`;
     }
 };
 
-export { extractCommitments, extractCommitmentsBatch, generateReply, generateComposeText, generateReminder, categorizeEmail, categorizeEmails, delay };
+export { extractCommitments, extractCommitmentsBatch, generateReply, generateComposeText, generateReminder, categorizeEmail, categorizeEmails, delay, callGroqWithRetry };

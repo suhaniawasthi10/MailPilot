@@ -7,7 +7,7 @@
  * - Checking index status
  */
 
-import { answerVector, answerVectorless, answerHybrid } from '../services/ragService.js';
+import { answerVector } from '../services/ragService.js';
 import { indexEmails, getIndexStatus } from '../services/embeddingService.js';
 import Email from '../models/Email.js';
 import EmailConnection from '../models/EmailConnection.js';
@@ -15,34 +15,17 @@ import EmailConnection from '../models/EmailConnection.js';
 /**
  * @desc    Ask a natural language question about your emails
  * @route   POST /api/rag/ask
- * @body    { question, mode?, connectionId? }
- *
- * mode: "vector" | "vectorless" | "hybrid" (default: "hybrid")
- * connectionId: optional — filter to a specific email account
+ * @body    { question, connectionId? }
  */
 const askQuestion = async (req, res) => {
     try {
-        const { question, mode = 'hybrid', connectionId } = req.body;
+        const { question, connectionId } = req.body;
 
         if (!question || question.trim().length === 0) {
             return res.status(400).json({ message: 'question is required' });
         }
 
-        // Pick the retrieval strategy based on mode
-        let result;
-        switch (mode) {
-            case 'vector':
-                result = await answerVector(question, req.user.id, connectionId);
-                break;
-            case 'vectorless':
-                result = await answerVectorless(question, req.user.id, connectionId);
-                break;
-            case 'hybrid':
-            default:
-                result = await answerHybrid(question, req.user.id, connectionId);
-                break;
-        }
-
+        const result = await answerVector(question, req.user.id, connectionId);
         res.json(result);
     } catch (error) {
         console.error('RAG ask error:', error.message);

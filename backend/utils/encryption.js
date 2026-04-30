@@ -25,8 +25,7 @@ export const encrypt = (text) => {
 
 export const decrypt = (encryptedText) => {
     if (!encryptedText) return encryptedText;
-    // If the text doesn't look encrypted (no colons), return as-is
-    // This handles legacy unencrypted tokens gracefully
+    // Legacy plaintext tokens have no colons — pass them through.
     if (!encryptedText.includes(':')) return encryptedText;
     try {
         const [ivHex, authTagHex, encrypted] = encryptedText.split(':');
@@ -38,7 +37,10 @@ export const decrypt = (encryptedText) => {
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (err) {
-        // If decryption fails, the token might be stored in plaintext (legacy)
-        return encryptedText;
+        // Fail loudly. The previous behavior returned the ciphertext as-is,
+        // which then surfaced downstream as opaque OAuth `invalid_grant` errors
+        // when really the cause was a missing/rotated TOKEN_ENCRYPTION_KEY.
+        console.error('Token decryption failed — TOKEN_ENCRYPTION_KEY may have changed or be missing.');
+        throw new Error('Failed to decrypt stored token');
     }
 };

@@ -40,14 +40,21 @@ const emailSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
-        // Whether this email has been indexed into the vector store (Chroma)
-        // Used by the RAG pipeline to process only new emails incrementally
+        // Whether this email has been indexed into the vector store (Pinecone).
+        // Used by the RAG pipeline to process only new emails incrementally.
         embedded: {
             type: Boolean,
             default: false,
         },
         embeddedAt: {
             type: Date,
+        },
+        // Number of vector chunks stored for this email. Pinecone serverless
+        // can't delete by metadata filter, so we store the count and rebuild
+        // the chunk IDs (`{emailId}#0`..`{emailId}#N-1`) when deleting.
+        chunkCount: {
+            type: Number,
+            default: 0,
         },
         // AI-assigned category for smart inbox
         category: {

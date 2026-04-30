@@ -24,15 +24,6 @@ interface Source {
 interface RagResponse {
   answer: string
   sources: Source[]
-  mode: string
-  plan?: {
-    sender?: string
-    keywords?: string[]
-    dateFrom?: string
-    dateTo?: string
-    category?: string
-    intent?: string
-  }
 }
 
 interface Message {
@@ -40,8 +31,6 @@ interface Message {
   type: 'question' | 'answer'
   text: string
   sources?: Source[]
-  mode?: string
-  plan?: RagResponse['plan']
   error?: boolean
 }
 
@@ -50,8 +39,6 @@ interface IndexStatus {
   embedded: number
   pending: number
 }
-
-type Mode = 'hybrid' | 'vector' | 'vectorless'
 
 // ============================================================================
 // Component
@@ -63,7 +50,6 @@ function Ask() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<Mode>('hybrid')
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null)
   const [indexing, setIndexing] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -156,7 +142,6 @@ function Ask() {
     try {
       const { data } = await api.post<RagResponse>('/api/rag/ask', {
         question,
-        mode,
         connectionId: activeConnection,
       })
 
@@ -165,15 +150,13 @@ function Ask() {
         type: 'answer',
         text: data.answer,
         sources: data.sources,
-        mode: data.mode,
-        plan: data.plan,
       }
       setMessages((prev) => [...prev, answerMsg])
     } catch {
       const answerMsg: Message = {
         id: (Date.now() + 1).toString(),
         type: 'answer',
-        text: 'Something went wrong. Make sure Chroma is running and your emails are indexed.',
+        text: 'Something went wrong. Make sure your emails have been indexed.',
         error: true,
       }
       setMessages((prev) => [...prev, answerMsg])
@@ -197,10 +180,7 @@ function Ask() {
     }
   }
 
-  const loadingHint =
-    mode === 'vector'     ? 'Searching embeddings…' :
-    mode === 'vectorless' ? 'Planning query…' :
-                            'Searching & re-ranking…'
+  const loadingHint = 'Searching your emails…'
 
   return (
     <div className="flex flex-col h-full animate-fade-in bg-cream">
@@ -232,8 +212,6 @@ function Ask() {
                 Clear
               </button>
             )}
-            {messages.length > 0 && <span className="w-px h-5 bg-rule mx-2" />}
-            <ModeSelector mode={mode} onChange={setMode} />
           </div>
         </div>
       </div>
@@ -373,30 +351,6 @@ function Ask() {
 // Sub-components
 // ============================================================================
 
-function ModeSelector({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
-  const modes: Mode[] = ['hybrid', 'vector', 'vectorless']
-  return (
-    <div className="flex items-center text-xs">
-      {modes.map((m, i) => (
-        <span key={m} className="flex items-center">
-          <button
-            onClick={() => onChange(m)}
-            className={`
-              px-2 py-1 transition-colors cursor-pointer
-              ${mode === m
-                ? 'text-ink font-semibold underline underline-offset-[6px] decoration-accent decoration-1'
-                : 'text-ink-muted hover:text-ink'}
-            `}
-          >
-            {m}
-          </button>
-          {i < modes.length - 1 && <span className="text-ink-faint mx-0.5">·</span>}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 function EmptyState({ onSubmit }: { onSubmit: (q: string) => void }) {
   // Mix the rhythm — start words vary so the list doesn't read as a template
   const examples = [
@@ -475,23 +429,6 @@ function AnswerBlock({
       <p className="text-[15px] text-ink whitespace-pre-wrap leading-relaxed">
         {message.text}
       </p>
-
-      {/* Plan / mode meta — uppercase tracked-out, no pills */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] tracking-[0.1em] uppercase text-ink-muted">
-        <span className="text-ink-soft">{message.mode}</span>
-        {message.plan?.sender && (
-          <span><span className="text-ink-faint">·</span> sender {message.plan.sender}</span>
-        )}
-        {message.plan?.dateFrom && (
-          <span><span className="text-ink-faint">·</span> from {message.plan.dateFrom}</span>
-        )}
-        {message.plan?.dateTo && (
-          <span><span className="text-ink-faint">·</span> to {message.plan.dateTo}</span>
-        )}
-        {message.plan?.keywords && message.plan.keywords.length > 0 && (
-          <span><span className="text-ink-faint">·</span> kw {message.plan.keywords.join(', ')}</span>
-        )}
-      </div>
 
       {/* Sources — indented citations, click to open the email */}
       {message.sources && message.sources.length > 0 && (

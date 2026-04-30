@@ -84,6 +84,26 @@ export const createMicrosoftDraft = async (connection, to, subject, body, conver
 };
 
 /**
+ * Send a reply email via Outlook (no draft step).
+ * Mirrors the Gmail "send a reply" code path used in emailController.
+ */
+export const sendMicrosoftReply = async (connection, to, subject, body, conversationId) => {
+    const accessToken = await getFreshMicrosoftToken(connection);
+
+    await graphRequest(accessToken, '/me/sendMail', {
+        method: 'POST',
+        body: JSON.stringify({
+            message: {
+                subject: subject?.startsWith('Re:') ? subject : `Re: ${subject || ''}`,
+                body: { contentType: 'text', content: body },
+                toRecipients: [{ emailAddress: { address: to } }],
+                conversationId: conversationId || undefined,
+            },
+        }),
+    });
+};
+
+/**
  * Create a calendar event in Outlook.
  */
 export const createMicrosoftCalendarEvent = async (connection, summary, date, description) => {
