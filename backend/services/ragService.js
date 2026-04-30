@@ -32,6 +32,26 @@ const MIN_SOURCE_SCORE = 0.25;
 // Reuse your existing Groq caller — no point duplicating retry logic
 import { delay } from './groqService.js';
 
+// Parse "try again in 16m24s" / "try again in 8s" from Groq error bodies,
+// or the Retry-After header. Null if neither gives a usable hint.
+const parseRetryAfterSeconds = (response, errorBody) => {
+    const header = response.headers.get('retry-after');
+    if (header) {
+        const sec = Number(header);
+        if (!Number.isNaN(sec)) return sec;
+    }
+    const match = errorBody.match(/try again in (?:(\d+)m)?([\d.]+)s/);
+    if (match) {
+        const minutes = match[1] ? parseInt(match[1], 10) : 0;
+        const seconds = parseFloat(match[2]);
+        return minutes * 60 + seconds;
+    }
+    return null;
+};
+
+// Beyond this it's a daily/long limit — retrying just spams logs
+const MAX_RETRY_WAIT_SECONDS = 30;
+
 // ============================================================================
 // SECTION 1: Groq helper (shared by all three modes)
 // ============================================================================
@@ -70,14 +90,26 @@ const callGroq = async (messages, options = {}) => {
             return data.choices[0].message.content;
         }
 
+        const errorBody = await response.text();
         const isRetryable = response.status === 429 || response.status >= 500;
+
         if (isRetryable && attempt < 3) {
-            await delay(Math.pow(2, attempt + 1) * 1000);
+            const serverWait = parseRetryAfterSeconds(response, errorBody);
+
+            // Daily/long limit — don't burn retries on something that won't clear for minutes
+            if (serverWait !== null && serverWait > MAX_RETRY_WAIT_SECONDS) {
+                console.error(`Groq API quota exhausted (try again in ${Math.round(serverWait)}s)`);
+                throw new Error(`Groq API error (${response.status}): ${errorBody}`);
+            }
+
+            const backoffMs = serverWait !== null
+                ? serverWait * 1000
+                : Math.pow(2, attempt + 1) * 1000;
+            await delay(backoffMs);
             continue;
         }
 
-        const errorData = await response.text();
-        throw new Error(`Groq API error (${response.status}): ${errorData}`);
+        throw new Error(`Groq API error (${response.status}): ${errorBody}`);
     }
 };
 

@@ -53,6 +53,29 @@ const truncateBody = (body) => {
 // Delay helper for rate limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Parse how long the server wants us to wait, in seconds. Checks the
+// Retry-After header first, then falls back to parsing Groq's message body
+// (e.g. "try again in 16m24.096s" or "try again in 8s"). Returns null if
+// neither source gives a usable hint.
+const parseRetryAfterSeconds = (response, errorBody) => {
+    const header = response.headers.get('retry-after');
+    if (header) {
+        const sec = Number(header);
+        if (!Number.isNaN(sec)) return sec;
+    }
+    const match = errorBody.match(/try again in (?:(\d+)m)?([\d.]+)s/);
+    if (match) {
+        const minutes = match[1] ? parseInt(match[1], 10) : 0;
+        const seconds = parseFloat(match[2]);
+        return minutes * 60 + seconds;
+    }
+    return null;
+};
+
+// Above this the 429 is almost certainly a daily/long limit — retrying
+// within our backoff window just spams logs without ever succeeding.
+const MAX_RETRY_WAIT_SECONDS = 30;
+
 // Valid categories for email classification
 const VALID_CATEGORIES = [
     'personal', 'work', 'newsletter', 'marketing',
@@ -100,19 +123,28 @@ const callGroqWithRetry = async (body, maxRetries = 3) => {
             return await response.json();
         }
 
-        // Retry on 429 (rate limit) or 5xx (server error)
+        const errorBody = await response.text();
         const isRetryable = response.status === 429 || response.status >= 500;
+
         if (isRetryable && attempt < maxRetries) {
-            // Exponential backoff: 2s, 4s, 8s
-            const backoff = Math.pow(2, attempt + 1) * 1000;
-            console.warn(`Groq API returned ${response.status}, retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
-            await delay(backoff);
+            const serverWait = parseRetryAfterSeconds(response, errorBody);
+
+            // Daily/long limit — don't burn retries on something that won't clear for minutes
+            if (serverWait !== null && serverWait > MAX_RETRY_WAIT_SECONDS) {
+                console.error(`Groq API quota exhausted (try again in ${Math.round(serverWait)}s)`);
+                throw new Error(`Groq API error (${response.status}): ${errorBody}`);
+            }
+
+            // Honor the server's hint when we have one; otherwise exponential backoff (2s, 4s, 8s)
+            const backoffMs = serverWait !== null
+                ? serverWait * 1000
+                : Math.pow(2, attempt + 1) * 1000;
+            console.warn(`Groq API returned ${response.status}, retrying in ${Math.round(backoffMs / 1000)}s (attempt ${attempt + 1}/${maxRetries})`);
+            await delay(backoffMs);
             continue;
         }
 
-        // Non-retryable error or exhausted retries
-        const errorData = await response.text();
-        throw new Error(`Groq API error (${response.status}): ${errorData}`);
+        throw new Error(`Groq API error (${response.status}): ${errorBody}`);
     }
 };
 
