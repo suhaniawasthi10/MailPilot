@@ -161,14 +161,14 @@ function Dashboard() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-6 px-4 max-w-md mx-auto text-center">
-        <div className="w-12 h-12 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
-          <Mail className="w-5 h-5 text-ink-soft" strokeWidth={1.5} />
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-5 px-4 max-w-md mx-auto text-center">
+        <div className="w-10 h-10 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
+          <Mail className="w-4 h-4 text-ink-soft" strokeWidth={1.5} />
         </div>
-        <div className="space-y-2">
-          <h2 className="display text-2xl text-ink">No accounts yet.</h2>
-          <p className="text-sm text-ink-soft leading-relaxed">
-            Connect your Gmail or Outlook account to begin tracking commitments.
+        <div className="space-y-1.5">
+          <h2 className="text-base font-semibold text-ink">No accounts connected</h2>
+          <p className="text-[13px] text-ink-soft leading-relaxed">
+            Connect a Gmail or Outlook account to begin tracking commitments.
           </p>
         </div>
         <Button variant="primary" onClick={() => navigate('/settings')}>
@@ -183,29 +183,22 @@ function Dashboard() {
   )
   const recentCommitments = commitments.slice(0, 8)
 
-  // Date for greeting — gives the page a "morning paper" feel
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
-
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-12 animate-fade-in">
-      {/* ===== Header — editorial, like a publication masthead ====== */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 border-b border-rule pb-8">
+    <div className="px-6 lg:px-10 py-8 max-w-6xl mx-auto space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">{today}</p>
-          <h1 className="display text-5xl text-ink mt-1.5 leading-[0.95]">
-            Today<span className="text-accent">.</span>
-          </h1>
+          <h1 className="text-[15px] font-semibold text-ink">Dashboard</h1>
+          <p className="text-[12px] text-ink-muted mt-0.5">
+            An overview of your inbox and outstanding commitments.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             onClick={handleSync}
             disabled={syncing}
-            leftIcon={<RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />}
           >
             {syncing ? 'Syncing' : 'Sync inbox'}
           </Button>
@@ -213,15 +206,15 @@ function Dashboard() {
             variant="primary"
             onClick={handleExtract}
             disabled={extracting}
-            leftIcon={extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+            leftIcon={extracting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
           >
             {extracting ? 'Extracting' : 'Extract commitments'}
           </Button>
         </div>
       </div>
 
-      {/* ===== Stats — giant editorial numbers, no boxes ============ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat value={stats.totalEmails}        label="Synced emails" />
         <Stat value={stats.pendingCommitments} label="Pending" />
         <Stat
@@ -232,28 +225,28 @@ function Dashboard() {
         <Stat value={stats.replyNeeded}        label="Reply needed" />
       </div>
 
-      {/* ===== Overdue alerts — terracotta-warm panel ============== */}
+      {/* Overdue */}
       {overdueCommitments.length > 0 && (
-        <section className="border-l-2 border-accent pl-5 py-1 space-y-3">
-          <div className="flex items-center gap-2 text-accent-ink">
-            <AlertTriangle className="w-4 h-4" strokeWidth={1.75} />
-            <p className="eyebrow text-accent-ink">Overdue</p>
+        <section className="rounded-md border border-danger/30 bg-danger-soft/40 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-danger">
+            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <p className="text-[12px] font-medium">Overdue</p>
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-0">
             {overdueCommitments.map((c) => (
               <li
                 key={c._id}
-                className="flex items-center justify-between gap-4 py-2 border-b border-rule last:border-b-0"
+                className="flex items-center justify-between gap-4 py-2 border-b border-danger/15 last:border-b-0"
               >
                 <div className="min-w-0">
-                  <p className="text-sm text-ink truncate">{c.summary}</p>
-                  <p className="text-xs text-accent-ink mt-0.5 tabular">
+                  <p className="text-[13px] text-ink truncate">{c.summary}</p>
+                  <p className="text-[11px] text-danger mt-0.5 tabular">
                     Due {formatDate(c.deadline!)}
                   </p>
                 </div>
                 <button
                   onClick={() => handleMarkComplete(c._id)}
-                  className="text-xs text-ink-muted hover:text-success transition-colors shrink-0 cursor-pointer underline-offset-4 hover:underline"
+                  className="text-[12px] text-ink-muted hover:text-ink transition-colors shrink-0 cursor-pointer"
                 >
                   Mark done
                 </button>
@@ -263,17 +256,16 @@ function Dashboard() {
         </section>
       )}
 
-      {/* ===== Recent commitments — flat list, matches /commitments == */}
-      <section className="space-y-4">
+      {/* Recent commitments */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="eyebrow">Recent commitments</h2>
+          <h2 className="text-[13px] font-medium text-ink">Recent commitments</h2>
           {commitments.length > 0 && (
             <button
               onClick={() => navigate('/commitments')}
               className="
-                text-xs text-ink-soft hover:text-ink
+                text-[12px] text-ink-muted hover:text-ink
                 flex items-center gap-1 transition-colors cursor-pointer
-                underline-offset-4 hover:underline
               "
             >
               View all <ChevronRight className="w-3 h-3" />
@@ -282,18 +274,20 @@ function Dashboard() {
         </div>
 
         {recentCommitments.length === 0 ? (
-          <div className="border border-rule rounded-md bg-cream-soft p-12 text-center">
-            <ListChecks className="w-7 h-7 text-ink-muted mx-auto mb-3" strokeWidth={1.5} />
-            <p className="text-sm text-ink-soft">
+          <div className="border border-rule rounded-md bg-cream-soft p-10 text-center">
+            <ListChecks className="w-6 h-6 text-ink-muted mx-auto mb-2.5" strokeWidth={1.5} />
+            <p className="text-[13px] text-ink-soft">
               No commitments yet. Sync your emails, then extract.
             </p>
           </div>
         ) : (
-          <div className="border-t border-rule">
-            {recentCommitments.map((c) => (
+          <div className="border border-rule rounded-md overflow-hidden bg-paper">
+            {recentCommitments.map((c, i) => (
               <div
                 key={c._id}
-                className="flex items-start gap-4 border-b border-rule px-2 py-4 hover:bg-cream-soft transition-colors group"
+                className={`flex items-start gap-3 px-3 py-3 hover:bg-cream-soft transition-colors group ${
+                  i !== recentCommitments.length - 1 ? 'border-b border-rule' : ''
+                }`}
               >
                 <button
                   onClick={() => c.status === 'pending' && handleMarkComplete(c._id)}
@@ -302,20 +296,20 @@ function Dashboard() {
                   aria-label="Mark complete"
                 >
                   {c.status === 'completed' ? (
-                    <CheckCircle2 className="w-4.5 h-4.5 text-success" strokeWidth={1.75} />
+                    <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />
                   ) : (
-                    <Circle className="w-4.5 h-4.5 text-ink-muted hover:text-success transition-colors" strokeWidth={1.5} />
+                    <Circle className="w-4 h-4 text-ink-muted hover:text-ink transition-colors" strokeWidth={1.5} />
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-sm ${
+                    className={`text-[13px] ${
                       c.status === 'completed' ? 'text-ink-muted line-through' : 'text-ink'
                     }`}
                   >
                     {c.summary}
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px]">
                     <PriorityBadge priority={c.priority} />
                     {c.deadline && (
                       <span className="flex items-center gap-1 text-ink-muted tabular">
@@ -324,7 +318,7 @@ function Dashboard() {
                       </span>
                     )}
                     {c.replyRequired && (
-                      <span className="flex items-center gap-1 text-accent-ink">
+                      <span className="flex items-center gap-1 text-ink-muted">
                         <Reply className="w-3 h-3" strokeWidth={1.75} /> Reply needed
                       </span>
                     )}

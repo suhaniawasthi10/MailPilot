@@ -28,7 +28,7 @@ function TokenHandler() {
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="flex items-center gap-3 text-ink-soft">
           <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm italic">Signing you in…</span>
+          <span className="text-[13px]">Signing you in…</span>
         </div>
       </div>
     )

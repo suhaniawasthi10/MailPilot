@@ -66,11 +66,11 @@ function EmailBodyRenderer({ html }: { html: string }) {
     doc.open()
     doc.write(`<!DOCTYPE html>
       <html><head><style>
-        body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.65; color: #1a1816; background: transparent; word-wrap: break-word; overflow-wrap: break-word; }
+        body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; line-height: 1.65; color: #0a0a0a; background: transparent; word-wrap: break-word; overflow-wrap: break-word; }
         img { max-width: 100%; height: auto; border-radius: 4px; }
-        a { color: #c44d3d; text-decoration: underline; text-underline-offset: 2px; }
-        blockquote { border-left: 2px solid #e8e3d8; margin: 8px 0; padding-left: 12px; color: #5c5853; }
-        pre { background: #f7f4ee; padding: 8px 12px; border-radius: 4px; overflow-x: auto; border: 1px solid #e8e3d8; }
+        a { color: #0a0a0a; text-decoration: underline; text-underline-offset: 2px; }
+        blockquote { border-left: 2px solid #e5e7eb; margin: 8px 0; padding-left: 12px; color: #4b5563; }
+        pre { background: #fafafa; padding: 8px 12px; border-radius: 4px; overflow-x: auto; border: 1px solid #e5e7eb; }
         table { border-collapse: collapse; max-width: 100%; }
         td, th { padding: 4px 8px; }
       </style></head><body>${html}</body></html>`)
@@ -97,21 +97,22 @@ function EmailBodyRenderer({ html }: { html: string }) {
   )
 }
 
-// Category config: cream-friendly tones — no neon accents.
-// Each category gets a tasteful muted color paired with hairline border.
+// Category badges are uniformly neutral — same palette, distinguished only by
+// icon + label. Keeps the inbox visually calm; categories are taxonomic
+// metadata, not signals that need to fight for attention.
 const CATEGORY_CONFIG: Record<
   EmailCategory,
   { icon: React.ElementType; label: string; text: string; bg: string; border: string }
 > = {
-  personal:      { icon: Users,        label: 'Personal',     text: 'text-ink',         bg: 'bg-cream-deep',   border: 'border-rule-strong' },
-  work:          { icon: Briefcase,    label: 'Work',         text: 'text-accent-ink',  bg: 'bg-accent-soft',  border: 'border-accent/30' },
-  newsletter:    { icon: Newspaper,    label: 'Newsletter',   text: 'text-success',     bg: 'bg-success-soft', border: 'border-success/20' },
-  marketing:     { icon: Megaphone,    label: 'Marketing',    text: 'text-warning',     bg: 'bg-warning-soft', border: 'border-warning/20' },
-  receipt:       { icon: Receipt,      label: 'Receipt',      text: 'text-success',     bg: 'bg-success-soft', border: 'border-success/20' },
-  calendar:      { icon: CalendarDays, label: 'Calendar',     text: 'text-ink',         bg: 'bg-cream-deep',   border: 'border-rule-strong' },
-  notification:  { icon: Bell,         label: 'Notification', text: 'text-warning',     bg: 'bg-warning-soft', border: 'border-warning/20' },
-  'cold-email':  { icon: MailX,        label: 'Cold',         text: 'text-ink-muted',   bg: 'bg-cream',        border: 'border-rule' },
-  uncategorized: { icon: Tag,          label: 'Other',        text: 'text-ink-muted',   bg: 'bg-cream',        border: 'border-rule' },
+  personal:      { icon: Users,        label: 'Personal',     text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  work:          { icon: Briefcase,    label: 'Work',         text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  newsletter:    { icon: Newspaper,    label: 'Newsletter',   text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  marketing:     { icon: Megaphone,    label: 'Marketing',    text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  receipt:       { icon: Receipt,      label: 'Receipt',      text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  calendar:      { icon: CalendarDays, label: 'Calendar',     text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  notification:  { icon: Bell,         label: 'Notification', text: 'text-ink-soft', bg: 'bg-cream-deep', border: 'border-rule' },
+  'cold-email':  { icon: MailX,        label: 'Cold',         text: 'text-ink-muted', bg: 'bg-cream-soft', border: 'border-rule' },
+  uncategorized: { icon: Tag,          label: 'Other',        text: 'text-ink-muted', bg: 'bg-cream-soft', border: 'border-rule' },
 }
 
 const PRIORITY_ORDER: EmailCategory[] = [
@@ -127,11 +128,11 @@ function CategoryBadge({ category }: { category: EmailCategory }) {
       className={`
         inline-flex items-center gap-1
         px-1.5 py-0.5 rounded
-        text-[10px] font-medium tracking-[0.08em] uppercase
+        text-[11px] font-medium
         border ${config.bg} ${config.text} ${config.border}
       `}
     >
-      <Icon className="w-2.5 h-2.5" strokeWidth={2} />
+      <Icon className="w-3 h-3" strokeWidth={1.75} />
       {config.label}
     </span>
   )
@@ -432,13 +433,13 @@ function Emails() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-5 px-4 max-w-md mx-auto text-center animate-fade-in">
-        <div className="w-12 h-12 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
-          <Mail className="w-5 h-5 text-ink-soft" strokeWidth={1.5} />
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4 max-w-md mx-auto text-center animate-fade-in">
+        <div className="w-10 h-10 rounded-md bg-cream-soft border border-rule flex items-center justify-center">
+          <Mail className="w-4 h-4 text-ink-soft" strokeWidth={1.5} />
         </div>
         <div>
-          <h2 className="display text-xl text-ink">No accounts connected</h2>
-          <p className="text-sm text-ink-soft mt-1">Connect Gmail or Outlook to get started.</p>
+          <h2 className="text-base font-semibold text-ink">No accounts connected</h2>
+          <p className="text-[13px] text-ink-soft mt-1">Connect Gmail or Outlook to get started.</p>
         </div>
       </div>
     )
@@ -460,22 +461,22 @@ function Emails() {
     }
 
     return (
-      <div className="p-6 lg:p-10 max-w-3xl mx-auto space-y-6 animate-fade-in">
+      <div className="px-6 lg:px-10 py-8 max-w-3xl mx-auto space-y-6 animate-fade-in">
         <button
           onClick={handleBack}
-          className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer eyebrow"
+          className="flex items-center gap-1.5 text-[12px] text-ink-muted hover:text-ink transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Back to inbox
         </button>
 
-        {/* Subject — editorial display headline */}
-        <div className="space-y-3 border-b border-rule pb-5">
-          <h2 className="display text-3xl text-ink leading-tight">
+        {/* Subject */}
+        <div className="space-y-2 border-b border-rule pb-4">
+          <h2 className="text-lg font-semibold text-ink leading-snug">
             {selectedEmail.subject || '(No subject)'}
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <CategoryBadge category={selectedEmail.category} />
-            <span className="text-xs text-ink-muted tabular">
+            <span className="text-[11px] text-ink-muted tabular">
               {threadMessages.length} message{threadMessages.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -530,9 +531,9 @@ function Emails() {
           )}
 
           {draftReply && (
-            <div className="border-l-2 border-accent pl-5 py-1 space-y-3 -ml-5">
+            <div className="border border-rule rounded-md bg-cream-soft p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="eyebrow text-accent-ink flex items-center gap-1.5">
+                <span className="text-[12px] font-medium text-ink-soft flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3" /> AI draft
                 </span>
                 <button
@@ -723,14 +724,13 @@ function Emails() {
   // List view
   // ============================================================
   return (
-    <div className="p-6 lg:p-10 max-w-6xl mx-auto space-y-6 animate-fade-in">
+    <div className="px-6 lg:px-10 py-8 max-w-6xl mx-auto space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 border-b border-rule pb-6">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Your inbox</p>
-          <h1 className="display text-4xl text-ink mt-1 leading-tight">Mail.</h1>
-          <p className="text-sm text-ink-soft mt-2 tabular">
-            <span className="text-ink font-medium">{totalEmails}</span>{' '}
+          <h1 className="text-[15px] font-semibold text-ink">Inbox</h1>
+          <p className="text-[12px] text-ink-muted mt-0.5 tabular">
+            <span className="text-ink-soft font-medium">{totalEmails}</span>{' '}
             {totalEmails === 1 ? 'message' : 'messages'}
             {activeCategory !== 'all' && activeCategory !== 'priority' && ` in ${activeCategory}`}
             {activeCategory === 'priority' && ' in priority'}
@@ -744,8 +744,8 @@ function Emails() {
             value={syncLimit}
             onChange={(e) => setSyncLimit(e.target.value)}
             className="
-              w-16 h-9 px-2 bg-paper border border-rule rounded-md
-              text-sm text-ink-soft text-center tabular
+              w-14 h-8 px-2 bg-paper border border-rule rounded-md
+              text-[13px] text-ink-soft text-center tabular
               focus:outline-none focus:border-ink/40
             "
             title="Number of emails to sync"
@@ -754,7 +754,7 @@ function Emails() {
             variant="primary"
             onClick={handleSync}
             disabled={syncing}
-            leftIcon={syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            leftIcon={syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           >
             {syncing ? 'Syncing' : 'Sync'}
           </Button>
@@ -920,11 +920,11 @@ function CategoryFilter({
     <button
       onClick={onClick}
       className={`
-        flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap
+        flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap
         transition-colors cursor-pointer
         ${active
-          ? 'text-ink border-b-2 border-accent -mb-px'
-          : 'text-ink-muted hover:text-ink border-b-2 border-transparent'}
+          ? 'text-ink bg-cream-deep'
+          : 'text-ink-muted hover:text-ink hover:bg-cream-deep/60'}
       `}
     >
       <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -951,11 +951,11 @@ function ReplyButton({
     <button
       onClick={onClick}
       className={`
-        flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium
+        flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[12px] font-medium
         transition-colors cursor-pointer
         ${active
-          ? 'bg-accent-soft border-accent/30 text-accent-ink'
-          : 'bg-cream border-rule text-ink-soft hover:text-ink hover:border-ink/30'}
+          ? 'bg-cream-deep border-rule-strong text-ink'
+          : 'bg-paper border-rule text-ink-soft hover:text-ink hover:border-rule-strong'}
       `}
     >
       {icon} {label}

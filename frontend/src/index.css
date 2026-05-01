@@ -1,54 +1,48 @@
 @import "tailwindcss";
 
 /* ============================================================================
- * Design system — MailPilot
+ * Design system — Mailpilot
  *
- * Editorial cream + ink + terracotta. Inspired by Superhuman's restraint
- * and Anthropic's warm typographic feel. NOT a vibe-coded dark dashboard.
- *
- * Color philosophy:
- * - Cream backgrounds (warm, easy on eyes, "publication" feel)
- * - Near-black ink with warmth (not pure #000)
- * - One accent (terracotta) used SPARINGLY — never on every button
- *
- * Typography philosophy:
- * - Newsreader serif for display/numbers (gives "thinking publication" feel)
- * - Inter for UI (neutral workhorse)
- * - JetBrains Mono for code/mono numerics
+ * Pure-neutral, light-only. Inspired by Plain.com / Linear: white canvas,
+ * gray scale, single near-black accent. No editorial flourishes; the
+ * product chrome is intentionally quiet so content does the talking.
  * ========================================================================== */
 @theme {
-  /* ---- Color: cream / ink / accent ------------------------------------- */
-  --color-cream:        #f7f4ee;   /* primary background, warm parchment */
-  --color-cream-soft:   #fbf9f4;   /* slightly lighter — elevated surfaces */
-  --color-cream-deep:   #efe9dc;   /* sunken / hover background tone      */
-  --color-paper:        #ffffff;   /* card surface that lifts off cream   */
+  /* ---- Surfaces -------------------------------------------------------- */
+  --color-cream:        #ffffff;   /* canvas (page bg)                     */
+  --color-cream-soft:   #fafafa;   /* sidebar / secondary surface          */
+  --color-cream-deep:   #f3f4f6;   /* hover / sunken bg                    */
+  --color-paper:        #ffffff;   /* card surface                         */
 
-  --color-ink:          #1a1816;   /* primary text — near-black w/ warmth */
-  --color-ink-soft:     #5c5853;   /* secondary text                      */
-  --color-ink-muted:    #908c85;   /* tertiary, captions                  */
-  --color-ink-faint:    #c4bfb6;   /* placeholder, very subtle text       */
+  /* ---- Text ------------------------------------------------------------ */
+  --color-ink:          #0a0a0a;   /* primary text                         */
+  --color-ink-soft:     #4b5563;   /* secondary text                       */
+  --color-ink-muted:    #6b7280;   /* tertiary, captions                   */
+  --color-ink-faint:    #9ca3af;   /* placeholder                          */
 
-  --color-rule:         #e8e3d8;   /* hairline borders & dividers         */
-  --color-rule-strong:  #d8d2c4;   /* slightly stronger rule              */
+  /* ---- Borders --------------------------------------------------------- */
+  --color-rule:         #e5e7eb;   /* default hairline                     */
+  --color-rule-strong:  #d1d5db;   /* slightly stronger rule               */
 
-  --color-accent:       #c44d3d;   /* terracotta — used SPARINGLY         */
-  --color-accent-hover: #a93c2e;
-  --color-accent-soft:  #fdf0ed;   /* tinted accent background            */
-  --color-accent-ink:   #7a2a1f;   /* accent text on accent-soft bg       */
+  /* ---- Accent (single near-black, used sparingly) --------------------- */
+  --color-accent:       #111827;   /* primary buttons, active states       */
+  --color-accent-hover: #000000;
+  --color-accent-soft:  #f3f4f6;   /* background tint behind accent text   */
+  --color-accent-ink:   #111827;   /* text on accent-soft bg               */
 
-  --color-success:      #3a5a40;   /* moss green for positive states      */
-  --color-success-soft: #ecf2ec;
-  --color-warning:      #b4751a;   /* aged amber                          */
-  --color-warning-soft: #faf2e2;
-  --color-danger:       #a93c2e;   /* slightly deeper terracotta          */
-  --color-danger-soft:  #faeae6;
+  /* ---- Status (used only where strictly meaningful) ------------------- */
+  --color-success:      #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-warning:      #a16207;
+  --color-warning-soft: #fefce8;
+  --color-danger:       #b91c1c;
+  --color-danger-soft:  #fef2f2;
 
-  /* ---- Typography ------------------------------------------------------ */
-  --font-display: "Newsreader", "Source Serif 4", Georgia, ui-serif, serif;
+  /* ---- Typography — single family, single mono ------------------------ */
   --font-sans:    "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
-  /* ---- Animations (kept) ---------------------------------------------- */
+  /* ---- Animations ----------------------------------------------------- */
   --animate-slide-in:       slide-in 0.25s ease-out;
   --animate-fade-in:        fade-in 0.3s ease-out;
   --animate-fade-in-up:     fade-in-up 0.3s ease-out;
@@ -76,33 +70,33 @@
 }
 
 /* ============================================================================
- * Base typography — applied to <body>
+ * Base typography
  * ========================================================================== */
 body {
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss03"; /* Inter stylistic sets for nicer 1/i/l */
+  font-feature-settings: "cv11", "ss03";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Display headings opt into the editorial serif via .display class */
+/* `.display` was the editorial serif. Now it's just slightly tighter Inter —
+ * legacy class refs continue to resolve and don't look magazine-y. */
 .display {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   letter-spacing: -0.01em;
+}
+
+/* `.eyebrow` was tracked-out caps. Now it's a quiet, small, sentence-case
+ * label. Same story: legacy refs render fine without the editorial smell. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-ink-muted);
 }
 
 /* Tabular figures for stat numbers, dates etc. */
 .tabular {
   font-variant-numeric: tabular-nums;
-}
-
-/* Tracked-out small caps — used for category labels, stat captions */
-.eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 500;
-  color: var(--color-ink-muted);
 }

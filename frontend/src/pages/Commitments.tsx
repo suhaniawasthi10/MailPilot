@@ -141,118 +141,115 @@ function Commitments() {
 
   if (connections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 px-4">
-        <ListChecks className="w-9 h-9 text-ink-muted" strokeWidth={1.5} />
-        <p className="text-sm text-ink-soft">No email accounts connected yet.</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-3 px-4">
+        <ListChecks className="w-7 h-7 text-ink-muted" strokeWidth={1.5} />
+        <p className="text-[13px] text-ink-soft">No email accounts connected yet.</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8 animate-fade-in">
+    <div className="px-6 lg:px-10 py-8 max-w-5xl mx-auto space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">What's owed</p>
-          <h1 className="display text-4xl text-ink mt-1 leading-tight">Commitments.</h1>
-          <p className="text-sm text-ink-soft mt-2 tabular">
-            <span className="text-ink font-medium">{totalCommitments}</span>{' '}
+          <h1 className="text-[15px] font-semibold text-ink">Commitments</h1>
+          <p className="text-[12px] text-ink-muted mt-0.5 tabular">
+            <span className="text-ink-soft font-medium">{totalCommitments}</span>{' '}
             {totalCommitments === 1 ? 'commitment' : 'commitments'} extracted from your inbox
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            onClick={handleExtract}
-            disabled={extracting}
-            leftIcon={extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-          >
-            {extracting ? 'Extracting' : 'Extract'}
-          </Button>
           <Button
             variant="secondary"
             onClick={handleCheckOverdue}
             disabled={checkingOverdue}
             leftIcon={
               checkingOverdue ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle className="w-3.5 h-3.5" />
               )
             }
           >
             Check overdue
           </Button>
+          <Button
+            variant="primary"
+            onClick={handleExtract}
+            disabled={extracting}
+            leftIcon={extracting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+          >
+            {extracting ? 'Extracting' : 'Extract'}
+          </Button>
         </div>
       </div>
 
-      {/* Filters — minimal, no card wrapper */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Filters */}
+      <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" strokeWidth={1.75} />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-muted" strokeWidth={1.75} />
           <input
             type="text"
             placeholder="Search commitments…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="
-              w-full h-10 pl-9 pr-9
+              w-full h-8 pl-8 pr-8
               bg-paper border border-rule rounded-md
-              text-sm text-ink placeholder:text-ink-faint
+              text-[13px] text-ink placeholder:text-ink-faint
               focus:outline-none focus:border-ink/40
             "
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink cursor-pointer"
               aria-label="Clear search"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
-        <div className="flex gap-2">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-            className="
-              h-10 px-3 bg-paper border border-rule rounded-md
-              text-sm text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
-            "
-          >
-            <option value="all">All status</option>
-            <option value="pending">Pending</option>
-            <option value="completed">Completed</option>
-          </select>
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value as FilterPriority)}
-            className="
-              h-10 px-3 bg-paper border border-rule rounded-md
-              text-sm text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
-            "
-          >
-            <option value="all">All priority</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+          className="
+            h-8 px-2.5 bg-paper border border-rule rounded-md
+            text-[13px] text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
+          "
+        >
+          <option value="all">All status</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value as FilterPriority)}
+          className="
+            h-8 px-2.5 bg-paper border border-rule rounded-md
+            text-[13px] text-ink-soft focus:outline-none focus:border-ink/40 cursor-pointer
+          "
+        >
+          <option value="all">All priority</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
       </div>
 
-      {/* List — flat rows with hairline dividers, no cards */}
+      {/* List */}
       {filtered.length === 0 ? (
-        <div className="border border-rule rounded-md bg-cream-soft p-12 text-center">
-          <ListChecks className="w-7 h-7 text-ink-muted mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-sm text-ink-soft">
+        <div className="border border-rule rounded-md bg-cream-soft p-10 text-center">
+          <ListChecks className="w-6 h-6 text-ink-muted mx-auto mb-2.5" strokeWidth={1.5} />
+          <p className="text-[13px] text-ink-soft">
             {commitments.length === 0
               ? 'No commitments yet. Sync emails, then extract.'
               : 'No commitments match your filters.'}
           </p>
         </div>
       ) : (
-        <div className="border-t border-rule">
+        <div className="border border-rule rounded-md overflow-hidden bg-paper">
           {filtered.map((c, i) => {
             const email = typeof c.emailId === 'object' ? (c.emailId as Email) : null
             const overdue = isOverdue(c)
@@ -261,11 +258,12 @@ function Commitments() {
               <div
                 key={c._id}
                 className={`
-                  group flex items-start gap-4 border-b border-rule px-2 py-5
+                  group flex items-start gap-3 px-3 py-3
                   transition-colors animate-fade-in-up
+                  ${i !== filtered.length - 1 ? 'border-b border-rule' : ''}
                   ${overdue ? 'bg-danger-soft/40' : 'hover:bg-cream-soft'}
                 `}
-                style={{ animationDelay: `${i * 25}ms`, animationFillMode: 'both' }}
+                style={{ animationDelay: `${i * 20}ms`, animationFillMode: 'both' }}
               >
                 <button
                   onClick={() => handleToggleStatus(c._id, c.status)}
@@ -273,15 +271,15 @@ function Commitments() {
                   aria-label={c.status === 'completed' ? 'Mark pending' : 'Mark complete'}
                 >
                   {c.status === 'completed' ? (
-                    <CheckCircle2 className="w-5 h-5 text-success" strokeWidth={1.75} />
+                    <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />
                   ) : (
-                    <Circle className="w-5 h-5 text-ink-muted hover:text-success transition-colors" strokeWidth={1.5} />
+                    <Circle className="w-4 h-4 text-ink-muted hover:text-ink transition-colors" strokeWidth={1.5} />
                   )}
                 </button>
 
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-sm leading-snug ${
+                    className={`text-[13px] leading-snug ${
                       c.status === 'completed'
                         ? 'text-ink-muted line-through'
                         : 'text-ink'
@@ -289,7 +287,7 @@ function Commitments() {
                   >
                     {c.summary}
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px]">
                     <PriorityBadge priority={c.priority} />
                     {c.deadline && (
                       <span
@@ -306,13 +304,13 @@ function Commitments() {
                       </span>
                     )}
                     {c.replyRequired && (
-                      <span className="flex items-center gap-1 text-accent-ink">
+                      <span className="flex items-center gap-1 text-ink-muted">
                         <Reply className="w-3 h-3" strokeWidth={1.75} /> Reply needed
                       </span>
                     )}
                     {email && (
-                      <span className="text-ink-muted truncate max-w-[280px] italic">
-                        from “{email.subject}”
+                      <span className="text-ink-muted truncate max-w-[280px]">
+                        from "{email.subject}"
                       </span>
                     )}
                   </div>
@@ -323,7 +321,7 @@ function Commitments() {
                     onClick={() => handleAddToCalendar(c._id)}
                     disabled={addingToCalendar === c._id}
                     className="
-                      shrink-0 p-2 rounded-md text-ink-muted
+                      shrink-0 p-1.5 rounded-md text-ink-muted
                       hover:text-ink hover:bg-cream-deep
                       transition-colors cursor-pointer disabled:opacity-50
                       opacity-0 group-hover:opacity-100
@@ -331,11 +329,11 @@ function Commitments() {
                     title="Add to calendar"
                   >
                     {addingToCalendar === c._id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : calendarSuccess === c._id ? (
-                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                     ) : (
-                      <Calendar className="w-4 h-4" strokeWidth={1.75} />
+                      <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
                     )}
                   </button>
                 )}

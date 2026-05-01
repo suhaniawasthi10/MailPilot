@@ -1,9 +1,13 @@
-// Priority badge — small-caps tracked-out, no rounded pill.
-// High = terracotta accent (warning), Medium = aged amber, Low = neutral muted.
 const styles = {
-  high:   'text-accent-ink bg-accent-soft border-accent/30',
-  medium: 'text-warning bg-warning-soft border-warning/20',
-  low:    'text-ink-muted bg-cream border-rule',
+  high:   'text-danger bg-danger-soft border-danger/30',
+  medium: 'text-warning bg-warning-soft border-warning/30',
+  low:    'text-ink-muted bg-cream-deep border-rule',
+}
+
+const labels = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
 }
 
 export function PriorityBadge({ priority }: { priority: 'high' | 'medium' | 'low' }) {
@@ -12,12 +16,12 @@ export function PriorityBadge({ priority }: { priority: 'high' | 'medium' | 'low
       className={`
         inline-flex items-center
         px-1.5 py-0.5 rounded
-        text-[10px] font-medium tracking-[0.1em] uppercase
+        text-[11px] font-medium
         border
         ${styles[priority]}
       `}
     >
-      {priority}
+      {labels[priority]}
     </span>
   )
 }

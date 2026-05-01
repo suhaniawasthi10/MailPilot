@@ -44,11 +44,9 @@ function Layout({ children }: { children: React.ReactNode }) {
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        {/* Wordmark — editorial serif italic, no logo box */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-rule">
-          <div className="display italic text-xl text-ink leading-none">
-            Mailpilot<span className="text-accent">.</span>
-          </div>
+        {/* Wordmark — clean sans, no italic, no decoration */}
+        <div className="h-14 flex items-center justify-between px-5 border-b border-rule">
+          <span className="text-[15px] font-semibold tracking-tight text-ink">Mailpilot</span>
           <button
             onClick={() => setMobileOpen(false)}
             className="lg:hidden text-ink-muted hover:text-ink cursor-pointer"
@@ -60,15 +58,14 @@ function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Account selector — only when multiple */}
         {connections.length > 1 && (
-          <div className="px-3 pt-4 pb-2">
-            <p className="eyebrow px-2 mb-1.5">Account</p>
+          <div className="px-3 pt-3 pb-1">
             <div className="relative">
               <select
                 value={activeConnection}
                 onChange={(e) => setActiveConnection(e.target.value)}
                 className="
                   w-full appearance-none bg-paper border border-rule rounded-md
-                  px-3 py-2 pr-8 text-xs text-ink-soft
+                  px-2.5 py-1.5 pr-7 text-xs text-ink-soft
                   focus:outline-none focus:border-ink/40 cursor-pointer truncate
                 "
               >
@@ -78,40 +75,33 @@ function Layout({ children }: { children: React.ReactNode }) {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-muted pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-ink-muted pointer-events-none" />
             </div>
           </div>
         )}
 
-        {/* Nav links — active state uses a left vertical terracotta rule
-             (Linear/Things style). Strong, unmistakable, but quiet. */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {/* Nav links — Plain-style, no left rule, just bg shift on active */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
-                `relative flex items-center gap-3 pl-4 pr-3 py-2 rounded-md text-sm transition-colors ${
+                `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
                   isActive
-                    ? 'text-ink bg-cream-deep font-semibold'
-                    : 'text-ink-soft hover:text-ink hover:bg-cream-deep/60 font-medium'
+                    ? 'text-ink bg-cream-deep font-medium'
+                    : 'text-ink-soft hover:text-ink hover:bg-cream-deep/60'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-accent"
-                      aria-hidden="true"
-                    />
-                  )}
                   <Icon
                     className={`w-4 h-4 shrink-0 ${isActive ? 'text-ink' : 'text-ink-muted'}`}
-                    strokeWidth={isActive ? 2 : 1.75}
+                    strokeWidth={1.75}
                   />
-                  <span className="tracking-tight">{label}</span>
+                  <span>{label}</span>
                 </>
               )}
             </NavLink>
@@ -119,12 +109,12 @@ function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Logout */}
-        <div className="p-3 border-t border-rule">
+        <div className="p-2 border-t border-rule">
           <button
             onClick={handleLogout}
             className="
-              flex items-center gap-3 px-3 py-2 rounded-md text-sm
-              text-ink-muted hover:text-danger hover:bg-danger-soft/60
+              flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px]
+              text-ink-muted hover:text-ink hover:bg-cream-deep
               transition-colors w-full cursor-pointer
             "
           >
@@ -137,7 +127,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Mobile header */}
-        <header className="lg:hidden h-16 flex items-center justify-between px-4 border-b border-rule bg-cream-soft">
+        <header className="lg:hidden h-14 flex items-center justify-between px-4 border-b border-rule bg-cream-soft">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
@@ -146,9 +136,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="display italic text-lg text-ink">
-              Mailpilot<span className="text-accent">.</span>
-            </div>
+            <span className="text-[15px] font-semibold tracking-tight text-ink">Mailpilot</span>
           </div>
           {activeEmail && (
             <span className="text-xs text-ink-muted truncate max-w-[140px]">{activeEmail}</span>

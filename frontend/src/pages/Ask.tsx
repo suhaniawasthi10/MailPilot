@@ -184,45 +184,38 @@ function Ask() {
 
   return (
     <div className="flex flex-col h-full animate-fade-in bg-cream">
-      {/* ===== Header — editorial: eyebrow → headline → standfirst ==== */}
-      <div className="border-b border-rule px-6 py-6 lg:px-10">
-        <div className="flex items-start justify-between max-w-4xl mx-auto gap-6">
-          <div className="max-w-xl">
-            <p className="eyebrow">Conversational search</p>
-            <h1 className="display text-3xl text-ink mt-1 leading-tight">Ask.</h1>
-            {/* Standfirst — italic serif, bridges headline to body */}
-            <p className="display italic text-[15px] text-ink-soft mt-3 leading-relaxed">
-              Pose any question to your inbox. Answers come grounded in real emails,
-              with cited sources.
+      {/* Header */}
+      <div className="border-b border-rule px-6 lg:px-10 py-5">
+        <div className="flex items-center justify-between max-w-4xl mx-auto gap-4">
+          <div>
+            <h1 className="text-[15px] font-semibold text-ink">Ask</h1>
+            <p className="text-[12px] text-ink-muted mt-0.5">
+              Ask questions about your inbox. Answers cite the emails they came from.
             </p>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0 pt-1">
-            {messages.length > 0 && (
-              <button
-                onClick={handleClearChat}
-                title="Clear conversation"
-                className="
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-md
-                  text-xs font-medium text-ink-muted hover:text-danger hover:bg-danger-soft
-                  transition-colors cursor-pointer
-                "
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear
-              </button>
-            )}
-          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearChat}
+              title="Clear conversation"
+              className="
+                flex items-center gap-1.5 px-2.5 py-1.5 rounded-md
+                text-[12px] font-medium text-ink-muted hover:text-ink hover:bg-cream-deep
+                transition-colors cursor-pointer
+              "
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ===== Index status — only shown when there's something to say.
-            Pending: hairline progress + "Index now" CTA.
-            Complete: tiny success line, no bar (avoids unfinished feel). === */}
+      {/* Index status */}
       {indexStatus && indexStatus.total > 0 && (
         <div className="px-6 lg:px-10 border-b border-rule">
           <div className="max-w-4xl mx-auto py-2.5">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-[12px]">
               <div className="flex items-center gap-2 text-ink-muted tabular">
                 {indexStatus.pending > 0 ? (
                   <>
@@ -231,10 +224,10 @@ function Ask() {
                       {' / '}
                       {indexStatus.total} indexed
                     </span>
-                    <span className="text-warning">· {indexStatus.pending} pending</span>
+                    <span>· {indexStatus.pending} pending</span>
                   </>
                 ) : (
-                  <span className="flex items-center gap-1.5 text-success">
+                  <span className="flex items-center gap-1.5">
                     <span className="w-1 h-1 rounded-full bg-success" />
                     All {indexStatus.total} emails indexed
                   </span>
@@ -245,8 +238,8 @@ function Ask() {
                   onClick={handleIndex}
                   disabled={indexing}
                   className="
-                    text-accent hover:text-accent-hover transition-colors
-                    disabled:opacity-50 cursor-pointer text-xs font-medium
+                    text-ink hover:text-ink-soft transition-colors
+                    disabled:opacity-50 cursor-pointer text-[12px] font-medium
                   "
                 >
                   {indexing ? 'Indexing…' : 'Index now'}
@@ -256,7 +249,7 @@ function Ask() {
             {indexStatus.pending > 0 && (
               <div className="mt-2 h-px w-full bg-rule overflow-hidden relative">
                 <div
-                  className="absolute inset-y-0 left-0 bg-accent transition-all duration-500"
+                  className="absolute inset-y-0 left-0 bg-ink transition-all duration-500"
                   style={{ width: `${(indexStatus.embedded / indexStatus.total) * 100}%` }}
                 />
               </div>
@@ -284,9 +277,9 @@ function Ask() {
           )}
 
           {loading && (
-            <div className="flex items-center gap-3 text-ink-muted">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm italic">{loadingHint}</span>
+            <div className="flex items-center gap-2.5 text-ink-muted">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span className="text-[13px]">{loadingHint}</span>
             </div>
           )}
 
@@ -294,8 +287,8 @@ function Ask() {
         </div>
       </div>
 
-      {/* ===== Input ================================================ */}
-      <div className="border-t border-rule px-6 lg:px-10 py-4 bg-cream-soft">
+      {/* Input */}
+      <div className="border-t border-rule px-6 lg:px-10 py-3 bg-paper">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex gap-2 items-center">
           <input
             type="text"
@@ -303,12 +296,12 @@ function Ask() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={
               messages.length === 0
-                ? 'Ask anything — try one of the examples above…'
+                ? 'Ask anything about your inbox…'
                 : 'Ask another question…'
             }
             className="
-              flex-1 h-12 px-4 bg-paper border border-rule-strong rounded-md
-              text-sm text-ink placeholder:text-ink-faint
+              flex-1 h-10 px-3 bg-paper border border-rule rounded-md
+              text-[13px] text-ink placeholder:text-ink-faint
               focus:outline-none focus:border-ink/40 transition-colors
             "
             disabled={loading}
@@ -317,20 +310,17 @@ function Ask() {
             type="submit"
             disabled={loading || !input.trim()}
             className="
-              h-12 px-4 rounded-md bg-ink text-cream font-semibold
-              hover:bg-ink-soft border border-ink
+              h-10 px-3.5 rounded-md bg-ink text-cream font-medium
+              hover:bg-accent-hover border border-ink
               transition-colors cursor-pointer
               disabled:opacity-40 disabled:cursor-not-allowed
-              flex items-center gap-2
+              flex items-center gap-1.5
             "
           >
-            <Send className="w-4 h-4" strokeWidth={1.75} />
-            <span className="hidden sm:inline text-sm">Ask</span>
+            <Send className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline text-[13px]">Ask</span>
           </button>
         </form>
-        <p className="max-w-4xl mx-auto text-[10px] text-ink-faint mt-2 tabular tracking-[0.08em] uppercase">
-          Press <span className="text-ink-muted">↵</span> to send · Powered by Groq
-        </p>
       </div>
 
       <ConfirmModal
@@ -352,35 +342,32 @@ function Ask() {
 // ============================================================================
 
 function EmptyState({ onSubmit }: { onSubmit: (q: string) => void }) {
-  // Mix the rhythm — start words vary so the list doesn't read as a template
   const examples = [
     'What did we agree on with Acme Corp last month?',
-    'Find anything urgent from this week.',
-    'Summarize my recent receipts and payments.',
+    'Find anything urgent from this week',
+    'Summarize my recent receipts and payments',
   ]
   return (
-    <div className="max-w-2xl mx-auto text-center">
-      {/* Display quote — the page's signature element */}
-      <p className="display italic text-3xl text-ink leading-snug">
-        “Treat your inbox like a library —
-        <br />
-        and ask it questions.”
-      </p>
-      <p className="text-sm text-ink-muted mt-4 max-w-md mx-auto">
+    <div className="max-w-lg mx-auto text-center">
+      <h2 className="text-[20px] font-semibold text-ink leading-snug">
+        Ask anything about your inbox
+      </h2>
+      <p className="text-[13px] text-ink-muted mt-2 leading-relaxed">
         Mailpilot reads through your email and answers in plain language,
         always citing the messages it pulled from.
       </p>
 
-      <p className="eyebrow mt-12">Try asking</p>
-      <div className="mt-3 max-w-lg mx-auto text-left">
+      <p className="text-[11px] font-medium text-ink-muted mt-10">Try asking</p>
+      <div className="mt-2.5 space-y-1.5">
         {examples.map((q) => (
           <button
             key={q}
             onClick={() => onSubmit(q)}
             className="
-              w-full block text-sm text-ink-soft hover:text-ink italic
+              w-full block text-[13px] text-ink-soft hover:text-ink
               transition-colors cursor-pointer
-              border-l-2 border-rule hover:border-accent pl-4 py-1.5
+              border border-rule hover:border-rule-strong rounded-md
+              bg-paper px-3 py-2 text-left
             "
           >
             {q}
@@ -391,12 +378,11 @@ function EmptyState({ onSubmit }: { onSubmit: (q: string) => void }) {
   )
 }
 
-// Question — right-aligned italic serif epigraph (no bubble)
 function QuestionRow({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="display italic text-lg text-ink-soft max-w-xl text-right leading-snug">
-        “{text}”
+      <p className="text-[13px] text-ink max-w-xl text-right leading-relaxed bg-cream-deep px-3 py-2 rounded-md">
+        {text}
       </p>
     </div>
   )
@@ -414,8 +400,8 @@ function AnswerBlock({
 
   if (message.error) {
     return (
-      <div className="border-l-2 border-danger pl-5 py-1">
-        <div className="flex items-start gap-2 text-sm text-danger">
+      <div className="rounded-md border border-danger/30 bg-danger-soft/40 p-3">
+        <div className="flex items-start gap-2 text-[13px] text-danger">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} />
           <p>{message.text}</p>
         </div>
@@ -424,46 +410,44 @@ function AnswerBlock({
   }
 
   return (
-    <div className="border-l-2 border-rule pl-5 -ml-5">
-      {/* Answer body */}
-      <p className="text-[15px] text-ink whitespace-pre-wrap leading-relaxed">
+    <div>
+      <p className="text-[13px] text-ink whitespace-pre-wrap leading-relaxed">
         {message.text}
       </p>
 
-      {/* Sources — indented citations, click to open the email */}
       {message.sources && message.sources.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-3">
           <button
             onClick={() => setSourcesOpen(!sourcesOpen)}
-            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer eyebrow"
+            className="flex items-center gap-1.5 text-[11px] font-medium text-ink-muted hover:text-ink transition-colors cursor-pointer"
           >
             {sourcesOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             {message.sources.length} {message.sources.length === 1 ? 'source' : 'sources'}
           </button>
 
           {sourcesOpen && (
-            <ol className="mt-2 space-y-1.5">
+            <ol className="mt-1.5 space-y-1">
               {message.sources.map((source, i) => (
                 <li key={source.emailId + i}>
                   <button
                     onClick={() => onOpenSource(source.emailId)}
                     className="
-                      group w-full text-left flex items-start gap-3 py-1.5 px-2 -mx-2 rounded
+                      group w-full text-left flex items-start gap-2.5 py-1.5 px-2 rounded
                       hover:bg-cream-deep transition-colors cursor-pointer
                     "
                   >
-                    <span className="text-[10px] text-ink-faint tabular pt-1 w-5 text-right shrink-0">
+                    <span className="text-[10px] text-ink-faint tabular pt-1 w-4 text-right shrink-0">
                       {i + 1}.
                     </span>
-                    <Mail className="w-3.5 h-3.5 text-ink-muted group-hover:text-accent shrink-0 mt-1 transition-colors" strokeWidth={1.75} />
+                    <Mail className="w-3.5 h-3.5 text-ink-muted group-hover:text-ink shrink-0 mt-0.5 transition-colors" strokeWidth={1.75} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-ink truncate">
+                      <p className="text-[13px] text-ink truncate">
                         {source.subject || '(no subject)'}
                       </p>
-                      <p className="text-xs text-ink-muted mt-0.5 truncate">
+                      <p className="text-[11px] text-ink-muted mt-0.5 truncate">
                         {source.sender} · {formatDate(source.receivedAt)}
                         {source.score != null && (
-                          <span className="ml-2 text-accent-ink tabular">{source.score}% match</span>
+                          <span className="ml-2 text-ink-soft tabular">{source.score}% match</span>
                         )}
                       </p>
                     </div>

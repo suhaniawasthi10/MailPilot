@@ -1,33 +1,31 @@
 import { type ReactNode } from 'react'
 
 interface StatProps {
-  /** Big editorial number (or short string) */
   value: ReactNode
-  /** Tracked-out small-caps caption below */
   label: string
-  /** Optional subtle hint line under the label */
   hint?: string
-  /** Optional accent dot — used to flag attention items */
+  /** Subtle dot to draw attention (e.g. for overdue counts > 0) */
   accent?: boolean
   className?: string
 }
 
-// The signature visual element. Giant Newsreader serif number above a tiny
-// uppercase tracked-out label. Reads like a magazine pull-quote, not a
-// dashboard widget. NO card, NO icon — just typography.
+/**
+ * A small, dense stat card. Label on top, number below — the Linear pattern.
+ * No serif, no tracked-out caption, no oversized typography.
+ */
 function Stat({ value, label, hint, accent, className = '' }: StatProps) {
   return (
-    <div className={className}>
-      <div className="flex items-baseline gap-2">
-        <span className="display tabular text-5xl text-ink leading-none">
-          {value}
-        </span>
-        {accent && (
-          <span className="w-1.5 h-1.5 rounded-full bg-accent self-center" />
-        )}
+    <div
+      className={`rounded-md border border-rule bg-paper px-4 py-3 ${className}`}
+    >
+      <div className="flex items-center gap-1.5">
+        <p className="text-[11px] font-medium text-ink-muted">{label}</p>
+        {accent && <span className="w-1 h-1 rounded-full bg-danger" />}
       </div>
-      <p className="eyebrow mt-3">{label}</p>
-      {hint && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
+      <p className="mt-1 text-[22px] font-semibold tabular text-ink leading-tight">
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 text-[11px] text-ink-muted">{hint}</p>}
     </div>
   )
 }
